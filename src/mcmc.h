@@ -141,6 +141,11 @@ changeParameters(Config<TTreeType> & config)
         newParamValue = adjustMutOverDis(newParamValue);
     }
 
+    //if (param == Config<TTreeType>::ParamType::mu)
+    //{
+    //    newParamValue = 0;
+    //}
+
     config.setParam(param, std::abs(newParamValue));
     if (param == Config<TTreeType>::ParamType::wildOverDis || param == Config<TTreeType>::ParamType::wildMean)
     {

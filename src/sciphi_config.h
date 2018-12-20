@@ -37,10 +37,9 @@
 #include <cassert>
 #include <unordered_map>
 
+#include "attachmentScores.h"
 #include "noise_counts.h"
 #include "logScores.h"
-#include "attachmentScores.h"
-
 
 struct MutationTree {};
 struct SampleTree {};
@@ -647,10 +646,9 @@ Config<TTreeType>::printParameters(){
     std::cout << "normal     - alpha:   " << this->getParam(Config::wildOverDis) * this->getParam(Config::wildMean) << " beta: " << this->getParam(Config::wildOverDis) - this->getParam(Config::wildMean) * this->getParam(Config::wildOverDis) << std::endl;
     std::cout << "mutation   - overDis: " << this->getParam(Config::mutationOverDis) << " SD: " << this->getSDParam(Config::mutationOverDis) << " count: " << this->getSDCountParam(Config::mutationOverDis) << " trails: " << this->getSDTrialsParam(Config::mutationOverDis) << std::endl;
     std::cout << "mutation   - alpha: " << this->getParam(Config::mutationOverDis) * this->getParam(Config::mutationMean) << " beta: " << this->getParam(Config::mutationOverDis) - (0.5 -this->getParam(Config::wildMean) ) * this->getParam(Config::mutationOverDis) << std::endl;
-    std::cout << "drop: " << 1.0 - this->getParam(Config::mu) << " SD: " << this->getSDParam(Config::mu) << " count: " << this->getSDCountParam(Config::mu) << " trails: " << this->getSDTrialsParam(Config::mu) << std::endl;
-    std::cout << "lambda: " << this->getParam(Config::nu) << " SD: " << this->getSDParam(Config::nu) << " count: " << this->getSDCountParam(Config::nu) << " trails: " << this->getSDTrialsParam(Config::nu) << std::endl;
-    //std::cout << "lambda: " << this->getParam(Config::lambda) << " SD: " << this->getSDParam(Config::lambda) << " count: " << this->getSDCountParam(Config::lambda) << " trails: " << this->getSDTrialsParam(Config::lambda) << std::endl;
-
+    std::cout << "drop: " << this->getParam(Config::mu) << " SD: " << this->getSDParam(Config::mu) << " count: " << this->getSDCountParam(Config::mu) << " trails: " << this->getSDTrialsParam(Config::mu) << std::endl;
+    std::cout << "zyg: " << this->getParam(Config::nu) << " SD: " << this->getSDParam(Config::nu) << " count: " << this->getSDCountParam(Config::nu) << " trails: " << this->getSDTrialsParam(Config::nu) << std::endl;
+    std::cout << "vio1: " << this->getParam(Config::lambda) << " SD: " << this->getSDParam(Config::lambda) << " count: " << this->getSDCountParam(Config::lambda) << " trails: " << this->getSDTrialsParam(Config::lambda) << std::endl;
 };
 
 

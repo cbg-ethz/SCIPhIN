@@ -1,5 +1,7 @@
-#define BOOST_TEST_MODULE ScateTest
+#define BOOST_TEST_MODULE SciphiTest
 #define BOOST_TEST_DYN_LINK
+#include <math.h>
+#include <limits>
 
 #include <boost/test/unit_test.hpp>
 
@@ -235,8 +237,25 @@ BOOST_AUTO_TEST_CASE( sample_tree_get_mutation_of_nodes )
 BOOST_AUTO_TEST_CASE( sample_tree_get_num_placements )
 {
     {
+        /*
+        *                                          15
+        *                                          |
+        *                                          0
+        *                           ___________________________
+        *                          |                           |
+        *                          1                           2
+        *               _______________________             _______
+        *              |                       |           |       |
+        *              3                       4           13      14
+        *       _______________             _______        0.7     0.8
+        *      |               |           |       |       0.3     0.2
+        *      5               6           11      12      0.6     0.5
+        *   _______         _______        0.5     0.6
+        *  |       |       |       |       0.4     0.4
+        *  7       8       9       10      0.8     0.7
+        */
+
         Config<SampleTree> config;
-        config.setNumSamples(4);
 
         add_edge(0, 1, config.getTree());
         config.getTree()[0].sample = -1;
@@ -244,50 +263,161 @@ BOOST_AUTO_TEST_CASE( sample_tree_get_num_placements )
         add_edge(0, 2, config.getTree());
         config.getTree()[2].sample = -1;
         add_edge(1, 3, config.getTree());
-        config.getTree()[3].sample = 0;
+        config.getTree()[3].sample = -1;
         add_edge(1, 4, config.getTree());
-        config.getTree()[4].sample = 1;
-        add_edge(2, 5, config.getTree());
-        config.getTree()[5].sample = 2;
-        add_edge(2, 6, config.getTree());
-        config.getTree()[6].sample = 3;
-        add_edge(7, 0, config.getTree());
-        config.getTree()[7].sample = -1;
+        config.getTree()[4].sample = -1;
+        add_edge(3, 5, config.getTree());
+        config.getTree()[5].sample = -1;
+        add_edge(3, 6, config.getTree());
+        config.getTree()[6].sample = -1;
 
-        unsigned numPlacements = getNumPlacements(config);
+        add_edge(5, 7, config.getTree());
+        config.getTree()[7].sample = 0;
+        add_edge(5, 8, config.getTree());
+        config.getTree()[8].sample = 1;
 
-        BOOST_CHECK_MESSAGE(numPlacements == 2, "numPlacements = " << numPlacements << " != 2");
+        add_edge(6, 9, config.getTree());
+        config.getTree()[9].sample = 2;
+        add_edge(6, 10, config.getTree());
+        config.getTree()[10].sample = 3;
+
+        add_edge(4, 11, config.getTree());
+        config.getTree()[11].sample = 4;
+        add_edge(4, 12, config.getTree());
+        config.getTree()[12].sample = 5;
+
+        add_edge(2, 13, config.getTree());
+        config.getTree()[13].sample = 6;
+        add_edge(2, 14, config.getTree());
+        config.getTree()[14].sample = 7;
+
+        add_edge(15, 0, config.getTree());
+
+
+        BOOST_CHECK_MESSAGE(getNumPlacements(config) == 6, "getNumPlacements(config) = " << getNumPlacements(config) << " != 6");
+
+        //std::vector<unsigned> numPlacements = getNumPlacements(config);
+        //BOOST_CHECK_MESSAGE(numPlacements[0] == 4, "numPlacements[0] = " << numPlacements[0] << " != 4");
+        //BOOST_CHECK_MESSAGE(numPlacements[1] == 2, "numPlacements[1] = " << numPlacements[1] << " != 2");
+        //BOOST_CHECK_MESSAGE(numPlacements[2] == 0, "numPlacements[2] = " << numPlacements[2] << " != 0");
+        //BOOST_CHECK_MESSAGE(numPlacements.back() == 6, "numPlacements.back() = " << numPlacements.back() << " != 6");
     }
     {
+        /*
+        *                                          13
+        *                                          |
+        *                                          0
+        *                           ___________________________
+        *                          |                           |
+        *                          1                           2
+        *               _______________________             _______
+        *              |                       |           |       |
+        *              3                       4           11      12
+        *       _______________
+        *      |               |
+        *      5               6
+        *   _______         _______
+        *  |       |       |       |
+        *  7       8       9       10
+        */
+
         Config<SampleTree> config;
-        config.setNumSamples(4);
 
         add_edge(0, 1, config.getTree());
         config.getTree()[0].sample = -1;
         config.getTree()[1].sample = -1;
-        add_edge(1, 2, config.getTree());
+        add_edge(0, 2, config.getTree());
         config.getTree()[2].sample = -1;
-        add_edge(2, 3, config.getTree());
-        config.getTree()[3].sample = 0;
-        add_edge(2, 4, config.getTree());
-        config.getTree()[4].sample = 1;
-        add_edge(1, 5, config.getTree());
-        config.getTree()[5].sample = 2;
-        add_edge(0, 6, config.getTree());
-        config.getTree()[6].sample = 3;
-        add_edge(7, 0, config.getTree());
-        config.getTree()[7].sample = -1;
+        add_edge(1, 3, config.getTree());
+        config.getTree()[3].sample = -1;
+        add_edge(1, 4, config.getTree());
+        config.getTree()[4].sample = -1;
+        add_edge(3, 5, config.getTree());
+        config.getTree()[5].sample = -1;
+        add_edge(3, 6, config.getTree());
+        config.getTree()[6].sample = -1;
 
-        unsigned numPlacements = getNumPlacements(config);
+        add_edge(5, 7, config.getTree());
+        config.getTree()[7].sample = 0;
+        add_edge(5, 8, config.getTree());
+        config.getTree()[8].sample = 1;
 
-        BOOST_CHECK_MESSAGE(numPlacements == 3, "numPlacements = " << numPlacements << " != 3");
+        add_edge(6, 9, config.getTree());
+        config.getTree()[9].sample = 2;
+        add_edge(6, 10, config.getTree());
+        config.getTree()[10].sample = 3;
+
+        config.getTree()[4].sample = 4;
+
+        add_edge(2, 11, config.getTree());
+        config.getTree()[11].sample = 5;
+        add_edge(2, 12, config.getTree());
+        config.getTree()[12].sample = 6;
+
+        add_edge(13, 0, config.getTree());
+
+
+        BOOST_CHECK_MESSAGE(getNumPlacements(config) == 5,
+                            "getNumPlacements(config) = " << getNumPlacements(config) << " != 5");
+
+        //std::vector<unsigned> numPlacements = getNumPlacements(config);
+        //BOOST_CHECK_MESSAGE(numPlacements[0] == 4, "numPlacements[0] = " << numPlacements[0] << " != 4");
+        //BOOST_CHECK_MESSAGE(numPlacements[1] == 2, "numPlacements[1] = " << numPlacements[1] << " != 2");
+        //BOOST_CHECK_MESSAGE(numPlacements[2] == 0, "numPlacements[2] = " << numPlacements[2] << " != 0");
+        //BOOST_CHECK_MESSAGE(numPlacements.back() == 6, "numPlacements.back() = " << numPlacements.back() << " != 6");
     }
+//    {
+//        Config<SampleTree> config;
+//        config.setNumSamples(4);
+//
+//        add_edge(0, 1, config.getTree());
+//        config.getTree()[0].sample = -1;
+//        config.getTree()[1].sample = -1;
+//        add_edge(1, 2, config.getTree());
+//        config.getTree()[2].sample = -1;
+//        add_edge(2, 3, config.getTree());
+//        config.getTree()[3].sample = 0;
+//        add_edge(2, 4, config.getTree());
+//        config.getTree()[4].sample = 1;
+//        add_edge(1, 5, config.getTree());
+//        config.getTree()[5].sample = 2;
+//        add_edge(0, 6, config.getTree());
+//        config.getTree()[6].sample = 3;
+//        add_edge(7, 0, config.getTree());
+//        config.getTree()[7].sample = -1;
+//
+//        unsigned numPlacements = getNumPlacements(config);
+//
+//        BOOST_CHECK_MESSAGE(numPlacements == 3, "numPlacements = " << numPlacements << " != 3");
+//    }
 }
 
 BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
 {
     {
         {
+            /*
+             *                                          15
+             *                                          |
+             *                                          0
+             *                           ___________________________
+             *                          |                           |
+             *                          1                           2
+             *               _______________________             _______
+             *              |                       |           |       |
+             *              3                       4           13      14
+             *       _______________             _______        0.7     0.8
+             *      |               |           |       |       0.3     0.2
+             *      5               6           11      12      0.6     0.5
+             *   _______         _______        0.5     0.6
+             *  |       |       |       |       0.4     0.4
+             *  7       8       9       10      0.8     0.7
+             *  0.1     0.2     0.3     0.4
+             *  0.9     0.8     0.7     0.5
+             *  0.5     0.4     0.3     0.2
+             */
+
+
             Config<SampleTree> config;
             config.setNumSamples(8);
 
@@ -329,54 +459,277 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
 
             std::get<0>(config.logScores).resizeNumCells(8);
             std::get<0>(config.logScores).resizeNumMuts(1);
-            std::get<0>(config.logScores).wtScore(0,0) = std::log(0.01);
-            std::get<0>(config.logScores).hetScore(0,0) = std::log(0.09);
-            std::get<0>(config.logScores).homScore(0,0) = std::log(0.05);
+            std::get<0>(config.logScores).wtScore(0,0) = std::log(0.1);
+            std::get<0>(config.logScores).hetScore(0,0) = std::log(0.9);
+            std::get<0>(config.logScores).homScore(0,0) = std::log(0.5);
 
-            std::get<0>(config.logScores).wtScore(1,0) = std::log(0.02);
-            std::get<0>(config.logScores).hetScore(1,0) = std::log(0.08);
-            std::get<0>(config.logScores).homScore(1,0) = std::log(0.04);
+            std::get<0>(config.logScores).wtScore(1,0) = std::log(0.2);
+            std::get<0>(config.logScores).hetScore(1,0) = std::log(0.8);
+            std::get<0>(config.logScores).homScore(1,0) = std::log(0.4);
 
-            std::get<0>(config.logScores).wtScore(2,0) = std::log(0.03);
-            std::get<0>(config.logScores).hetScore(2,0) = std::log(0.07);
-            std::get<0>(config.logScores).homScore(2,0) = std::log(0.03);
+            std::get<0>(config.logScores).wtScore(2,0) = std::log(0.3);
+            std::get<0>(config.logScores).hetScore(2,0) = std::log(0.7);
+            std::get<0>(config.logScores).homScore(2,0) = std::log(0.3);
 
-            std::get<0>(config.logScores).wtScore(3,0) = std::log(0.04);
-            std::get<0>(config.logScores).hetScore(3,0) = std::log(0.05);
-            std::get<0>(config.logScores).homScore(3,0) = std::log(0.02);
+            std::get<0>(config.logScores).wtScore(3,0) = std::log(0.4);
+            std::get<0>(config.logScores).hetScore(3,0) = std::log(0.5);
+            std::get<0>(config.logScores).homScore(3,0) = std::log(0.2);
 
-            std::get<0>(config.logScores).wtScore(4,0) = std::log(0.05);
-            std::get<0>(config.logScores).hetScore(4,0) = std::log(0.04);
-            std::get<0>(config.logScores).homScore(4,0) = std::log(0.08);
+            std::get<0>(config.logScores).wtScore(4,0) = std::log(0.5);
+            std::get<0>(config.logScores).hetScore(4,0) = std::log(0.4);
+            std::get<0>(config.logScores).homScore(4,0) = std::log(0.8);
 
-            std::get<0>(config.logScores).wtScore(5,0) = std::log(0.06);
-            std::get<0>(config.logScores).hetScore(5,0) = std::log(0.04);
-            std::get<0>(config.logScores).homScore(5,0) = std::log(0.07);
+            std::get<0>(config.logScores).wtScore(5,0) = std::log(0.6);
+            std::get<0>(config.logScores).hetScore(5,0) = std::log(0.4);
+            std::get<0>(config.logScores).homScore(5,0) = std::log(0.7);
 
-            std::get<0>(config.logScores).wtScore(6,0) = std::log(0.07);
-            std::get<0>(config.logScores).hetScore(6,0) = std::log(0.03);
-            std::get<0>(config.logScores).homScore(6,0) = std::log(0.06);
+            std::get<0>(config.logScores).wtScore(6,0) = std::log(0.7);
+            std::get<0>(config.logScores).hetScore(6,0) = std::log(0.3);
+            std::get<0>(config.logScores).homScore(6,0) = std::log(0.6);
 
-            std::get<0>(config.logScores).wtScore(7,0) = std::log(0.08);
-            std::get<0>(config.logScores).hetScore(7,0) = std::log(0.02);
-            std::get<0>(config.logScores).homScore(7,0) = std::log(0.05);
+            std::get<0>(config.logScores).wtScore(7,0) = std::log(0.8);
+            std::get<0>(config.logScores).hetScore(7,0) = std::log(0.2);
+            std::get<0>(config.logScores).homScore(7,0) = std::log(0.5);
 
             config.noiseScore = -1000;
             config.data.resize(8);
             config.data[0].resize(1);
             config._tmpAttachmentScore.resize(15);
 
-            scoreTree(config);
+            config.computeMixScore = true;
+            config.setParam(Config<SampleTree>::nu, 0.2);
+            config.setParam(Config<SampleTree>::lambda, 0.1);
+            config.numMutPlacements[0] = getNumPlacements(config);
 
-            double result = std::log(0.09) + std::log(0.08) + std::log(0.07) + std::log(0.05) + std::log(0.04) + std::log(0.04) - std::log(0.01) - std::log(0.02) - std::log(0.03) - std::log(0.04) - std::log(0.05) - std::log(0.06);
-            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.hetScore(1)-result) <= std::numeric_limits<double>::epsilon(), std::exp(config._tmpAttachmentScore.hetScore(1)) << " != " << result);
-            result = std::log(0.05) + std::log(0.04) + std::log(0.03) + std::log(0.02) + std::log(0.08) + std::log(0.07) - std::log(0.01) - std::log(0.02) - std::log(0.03) - std::log(0.04) - std::log(0.05) - std::log(0.06);
-            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.homScore(1)-result) <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.homScore(1) << " != " << result);
+            std::cout << scoreTree(config) << std::endl;
 
-            result = 1.0/15.0 * 0.8 * exp(config._tmpAttachmentScore.hetScore(1)) + 1.0/7.0 * 0.2 * exp(config._tmpAttachmentScore.homScore(1));
+            // test the heterozygous case
+            double result = std::log(0.9) + std::log(0.8) + std::log(0.7) + std::log(0.5) + std::log(0.4) + std::log(0.4)
+                    - std::log(0.1) - std::log(0.2) - std::log(0.3) - std::log(0.4) - std::log(0.5) - std::log(0.6);
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.hetScore(1)-result)
+                    <= std::numeric_limits<double>::epsilon(), std::exp(config._tmpAttachmentScore.hetScore(1))
+                    << " != " << result);
+
+            // test the homozygouss case
+            result = std::log(0.5) + std::log(0.4) + std::log(0.3) + std::log(0.2) + std::log(0.8) + std::log(0.7)
+                    - std::log(0.1) - std::log(0.2) - std::log(0.3) - std::log(0.4) - std::log(0.5) - std::log(0.6);
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.homScore(1)-result)
+                    <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.homScore(1)
+                    << " != " << result);
+
+            // test the case where the mutation is lost
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(7)),
+                    "config._tmpAttachmentScore.mixWildScore(7) != -inf - "
+                    << config._tmpAttachmentScore.mixWildScore(7));
+
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(8)),
+                    "config._tmpAttachmentScore.mixWildScore(8) != -inf - "
+                    << config._tmpAttachmentScore.mixWildScore(8));
+
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(3)),
+                    "config._tmpAttachmentScore.mixWildScore(3) != -inf - "
+                    << config._tmpAttachmentScore.mixWildScore(3));
+
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(5)),
+                    "config._tmpAttachmentScore.mixWildScore(5) != -inf - "
+                    << config._tmpAttachmentScore.mixWildScore(5));
+
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(6)),
+                    "config._tmpAttachmentScore.mixWildScore(6) != -inf - "
+                    << config._tmpAttachmentScore.mixWildScore(6));
+
+            double los6 = std::log(0.9) - std::log(0.1)
+                    + std::log(0.8) - std::log(0.2)
+                    + std::log(0.3) - std::log(0.3)
+                    + std::log(0.4) - std::log(0.4)
+                    + std::log(0.4) - std::log(0.5)
+                    + std::log(0.4) - std::log(0.6);
+
+            double los5 = std::log(0.1) - std::log(0.1)
+                    + std::log(0.2) - std::log(0.2)
+                    + std::log(0.7) - std::log(0.3)
+                    + std::log(0.5) - std::log(0.4)
+                    + std::log(0.4) - std::log(0.5)
+                    + std::log(0.4) - std::log(0.6);
+
+            result = addLogProb(los6, los5);
+
+
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.mixWildScore(1)-result)
+                    <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.mixWildScore(1)
+                    << " != " << result);
+
+            los6 = std::log(0.9) - std::log(0.1)
+                    + std::log(0.8) - std::log(0.2)
+                    + std::log(0.3) - std::log(0.3)
+                    + std::log(0.4) - std::log(0.4)
+                    + std::log(0.4) - std::log(0.5)
+                    + std::log(0.4) - std::log(0.6)
+                    + std::log(0.3) - std::log(0.7)
+                    + std::log(0.2) - std::log(0.8);
+
+            los5 = std::log(0.1) - std::log(0.1)
+                    + std::log(0.2) - std::log(0.2)
+                    + std::log(0.7) - std::log(0.3)
+                    + std::log(0.5) - std::log(0.4)
+                    + std::log(0.4) - std::log(0.5)
+                    + std::log(0.4) - std::log(0.6)
+                    + std::log(0.3) - std::log(0.7)
+                    + std::log(0.2) - std::log(0.8);
+
+            double los4 = std::log(0.9) - std::log(0.1)
+                    + std::log(0.8) - std::log(0.2)
+                    + std::log(0.7) - std::log(0.3)
+                    + std::log(0.5) - std::log(0.4)
+                    + std::log(0.5) - std::log(0.5)
+                    + std::log(0.6) - std::log(0.6)
+                    + std::log(0.3) - std::log(0.7)
+                    + std::log(0.2) - std::log(0.8);
+
+            double los3 = std::log(0.1) - std::log(0.1)
+                    + std::log(0.2) - std::log(0.2)
+                    + std::log(0.3) - std::log(0.3)
+                    + std::log(0.4) - std::log(0.4)
+                    + std::log(0.4) - std::log(0.5)
+                    + std::log(0.4) - std::log(0.6)
+                    + std::log(0.3) - std::log(0.7)
+                    + std::log(0.2) - std::log(0.8);
+
+            result = addLogProb(addLogProb(los6, los5), addLogProb(los4, los3));
+
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.mixWildScore(0)-result)
+                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.mixWildScore(0)
+                                << " != " << result);
+
+            // test the case where the reference allele is lost
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(7)),
+                                "config._tmpAttachmentScore.mixHomScore(7) != -inf - "
+                                        << config._tmpAttachmentScore.mixHomScore(7));
+
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(8)),
+                                "config._tmpAttachmentScore.mixHomScore(8) != -inf - "
+                                        << config._tmpAttachmentScore.mixHomScore(8));
+
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(3)),
+                                "config._tmpAttachmentScore.mixHomScore(3) != -inf - "
+                                        << config._tmpAttachmentScore.mixHomScore(3));
+
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(5)),
+                                "config._tmpAttachmentScore.mixHomScore(5) != -inf - "
+                                        << config._tmpAttachmentScore.mixHomScore(5));
+
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(6)),
+                                "config._tmpAttachmentScore.mixHomScore(6) != -inf - "
+                                        << config._tmpAttachmentScore.mixHomScore(6));
+
+            double hom6 = std::log(0.9) - std::log(0.1)
+                          + std::log(0.8) - std::log(0.2)
+                          + std::log(0.3) - std::log(0.3)
+                          + std::log(0.2) - std::log(0.4)
+                          + std::log(0.4) - std::log(0.5)
+                          + std::log(0.4) - std::log(0.6);
+
+            double hom5 = std::log(0.5) - std::log(0.1)
+                          + std::log(0.4) - std::log(0.2)
+                          + std::log(0.7) - std::log(0.3)
+                          + std::log(0.5) - std::log(0.4)
+                          + std::log(0.4) - std::log(0.5)
+                          + std::log(0.4) - std::log(0.6);
+
+            result = addLogProb(hom6, hom5);
+
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.mixHomScore(1)-result)
+                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.mixHomScore(1)
+                                        << " != " << result);
+
+            hom6 = std::log(0.9) - std::log(0.1)
+                   + std::log(0.8) - std::log(0.2)
+                   + std::log(0.3) - std::log(0.3)
+                   + std::log(0.2) - std::log(0.4)
+                   + std::log(0.4) - std::log(0.5)
+                   + std::log(0.4) - std::log(0.6)
+                   + std::log(0.3) - std::log(0.7)
+                   + std::log(0.2) - std::log(0.8);
+
+            hom5 = std::log(0.5) - std::log(0.1)
+                   + std::log(0.4) - std::log(0.2)
+                   + std::log(0.7) - std::log(0.3)
+                   + std::log(0.5) - std::log(0.4)
+                   + std::log(0.4) - std::log(0.5)
+                   + std::log(0.4) - std::log(0.6)
+                   + std::log(0.3) - std::log(0.7)
+                   + std::log(0.2) - std::log(0.8);
+
+            double hom4 = std::log(0.9) - std::log(0.1)
+                          + std::log(0.8) - std::log(0.2)
+                          + std::log(0.7) - std::log(0.3)
+                          + std::log(0.5) - std::log(0.4)
+                          + std::log(0.8) - std::log(0.5)
+                          + std::log(0.7) - std::log(0.6)
+                          + std::log(0.3) - std::log(0.7)
+                          + std::log(0.2) - std::log(0.8);
+
+            double hom3 = std::log(0.5) - std::log(0.1)
+                          + std::log(0.4) - std::log(0.2)
+                          + std::log(0.3) - std::log(0.3)
+                          + std::log(0.2) - std::log(0.4)
+                          + std::log(0.4) - std::log(0.5)
+                          + std::log(0.4) - std::log(0.6)
+                          + std::log(0.3) - std::log(0.7)
+                          + std::log(0.2) - std::log(0.8);
+
+            result = addLogProb(addLogProb(hom6, hom5), addLogProb(hom4, hom3));
+
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.mixHomScore(0)-result)
+                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.mixHomScore(0)
+                                        << " != " << result);
+
+            result = 1.0/15.0 * 0.8 * exp(config._tmpAttachmentScore.hetScore(0))
+                    + 1.0/7.0 * 0.2 * exp(config._tmpAttachmentScore.homScore(0));
             result = std::log(result);
-            config._tmpAttachmentScore[1].computeFinalScore(0.2, 0.3, 7, getNumPlacements(config), false, config.computeMixScore);
-            BOOST_CHECK_MESSAGE(std::abs(result - config._tmpAttachmentScore[1].finalScore()) <=  10.0 * std::numeric_limits<double>::epsilon(), result << " != " << config._tmpAttachmentScore[1].finalScore());
+            config._tmpAttachmentScore[0].computeFinalScore(0.2, 0.1, 7, config.numMutPlacements[0],
+                    false, false);
+            BOOST_CHECK_MESSAGE(std::abs(result - config._tmpAttachmentScore[0].finalScore())
+                    <=  10.0 * std::numeric_limits<double>::epsilon(), result
+                    << " != " << config._tmpAttachmentScore[0].finalScore());
+
+            result = 0.7 * 1.0/15.0 * exp(config._tmpAttachmentScore.hetScore(0))
+                    + 1.0/7.0 * 0.2 * exp(config._tmpAttachmentScore.homScore(0))
+                    + 0.1 *1.0/6.0 * (exp(config._tmpAttachmentScore.mixWildScore(0))
+                    + exp(config._tmpAttachmentScore.mixHomScore(0))) /2.0;
+            result = std::log(result);
+
+            config._tmpAttachmentScore[0].computeFinalScore(0.2, 0.1, 7, config.numMutPlacements[0],
+                                                            false, true);
+            BOOST_CHECK_MESSAGE(std::abs(result - config._tmpAttachmentScore[0].finalScore())
+                                <=  10.0 * std::numeric_limits<double>::epsilon(), result
+                                << " != " << config._tmpAttachmentScore[0].finalScore());
+
+            std::cout << result<< std::endl;
+
+            double a = config._tmpAttachmentScore.hetScore(0);
+            double b = config._tmpAttachmentScore.homScore(0);
+            double c = config._tmpAttachmentScore.mixWildScore(0);
+            double d = config._tmpAttachmentScore.mixHomScore(0);
+
+            std::cout << 0 << " " << config._tmpAttachmentScore[0] << std::endl;
+
+            for (unsigned i = 1; i < config._tmpAttachmentScore.size(); ++i) {
+                std::cout << i << " " << config._tmpAttachmentScore[i] << std::endl;
+                a = addLogProb(a, config._tmpAttachmentScore.hetScore(i));
+            }
+            for (unsigned i = 1; i < 7; ++i) {
+                b = addLogProb(b, config._tmpAttachmentScore.homScore(i));
+            }
+
+            c = addLogProb(c, config._tmpAttachmentScore.mixWildScore(1));
+            d = addLogProb(d, config._tmpAttachmentScore.mixHomScore(1));
+
+            std::cout << a << " " << b << " " << c << " " << d << " " << std::log(0.7 * 1.0/15.0 * exp(a)
+            + 1.0/7.0 * 0.2 * exp(b)
+            + 0.1 *1.0/6.0 * (exp(c) + exp(d)) /2.0) << std::endl;
+
+
         }
     }
 }

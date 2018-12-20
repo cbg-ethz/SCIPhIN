@@ -23,7 +23,6 @@
 #ifndef SCORETREE_H_
 #define SCORETREE_H_
 
-
 #include <stdbool.h>
 #include <vector>
 #include <stdlib.h>
@@ -37,16 +36,11 @@
 #include <queue>
 #include <tuple>
 #include "sciphi_config.h"
-#include "trees.h"
-#include "probabilities.h"
 #include "attachmentScores.h"
+#include "probabilities.h"
+#include "trees.h"
 
 #include <boost/math/distributions/beta.hpp>
-
-using namespace std;
-
-//extern double epsilon;
-//std::vector<std::string> getGeneNames(string fileName, unsigned numSamples);
 
 template <typename TTreeType>
 unsigned getBestAttachmentPosition(Config<TTreeType> & config,
@@ -88,7 +82,7 @@ public:
             return;
         }
 
-        // resue container
+        // reuse container
         Config<SampleTree>::TAttachmentScores & attachmentScores = this->attachmentScores;
 
         // compute scores for leaf nodes
@@ -103,11 +97,10 @@ public:
             }
             // add hetero score to overall tree score
             scoreSum.hetScore() = addLogProb(scoreSum.hetScore(), attachmentScores[v].hetScore());
-
             return ;
         }
 
-        // compute score of inner node and add it to the overall tree socre
+        // compute score of inner node and add it to the overall tree score
         auto it = out_edges(v,g).first;
         attachmentScores.computeLogHetScoreInnerNode(v, attachmentScores.hetScore(target(*it, g)), attachmentScores.hetScore(target(*(it+1), g)));
         attachmentScores.computeLogHomScoreInnerNode(v, attachmentScores.homScore(target(*it, g)), attachmentScores.homScore(target(*(it+1), g)));
@@ -121,29 +114,13 @@ public:
             unsigned rightNodeId = target(*(it + 1), g);
             bool innerNodeLeft = g[leftNodeId].sample == -1;
             bool innerNodeRight = g[rightNodeId].sample == -1;
-            attachmentScores.computeLogMixWildScoreInnerNode(
-                    v,
-                    innerNodeLeft, 
-                    attachmentScores.mixWildScore(leftNodeId),
-                    attachmentScores.hetScore(leftNodeId),
-                    innerNodeRight, 
-                    attachmentScores.mixWildScore(rightNodeId),
-                    attachmentScores.hetScore(rightNodeId));
-            attachmentScores.computeLogMixHomScoreInnerNode(
-                    v,
-                    innerNodeLeft, 
-                    attachmentScores.homScore(leftNodeId), 
-                    attachmentScores.mixHomScore(leftNodeId),
-                    attachmentScores.hetScore(leftNodeId),
-                    innerNodeRight, 
-                    attachmentScores.homScore(rightNodeId), 
-                    attachmentScores.mixHomScore(rightNodeId),
-                    attachmentScores.hetScore(rightNodeId));
+            attachmentScores.computeLogMixWildScoreInnerNode(g, v);
+            attachmentScores.computeLogMixHomScoreInnerNode(g, v);
 
             if(innerNodeLeft || innerNodeRight)
             {
-                scoreSum.mixWildScore() = addLogProb(scoreSum.mixWildScore(), attachmentScores[v].mixWildScore());
-                scoreSum.mixHomScore() = addLogProb(scoreSum.mixHomScore(), attachmentScores[v].mixHomScore());
+                scoreSum.mixWildScore() = addLog_nan_x(scoreSum.mixWildScore(), attachmentScores[v].mixWildScore());
+                scoreSum.mixHomScore() = addLog_nan_x(scoreSum.mixHomScore(), attachmentScores[v].mixHomScore());
             }
         }
         return ;
@@ -242,6 +219,9 @@ unsigned getBestAttachmentPosition(Config<TTreeType> & config,
 template <typename TTreeType>
 double clamPriorLog(Config<TTreeType> & config)
 {
+    return 0;
+
+    //TODO need to look at this again!
     boost::math::beta_distribution<> betaPDF(config.clamPrior[0],config.clamPrior[1]);
     return std::log(boost::math::pdf(betaPDF, config.getParam(Config<TTreeType>::lambda)));
 }
@@ -284,7 +264,7 @@ double getSumAttachmentScore(Config<TTreeType> & config,
             config.getParam(Config<TTreeType>::nu), 
             config.getParam(Config<TTreeType>::lambda), 
             config.getNumSamples() - 1,
-            config.numMutPlacements[0], 
+            config.numMutPlacements[0],
             false,
             config.computeMixScore);
 
@@ -323,7 +303,7 @@ double sumScoreTree(Config<TTreeType> & config)
 
     if (config.computeMixScore)
     {
-	    return sumTreeScore + noAttachmentScore + config.noiseScore + clamPriorLog(config);
+        return sumTreeScore + noAttachmentScore + config.noiseScore; // + clamPriorLog(config);
     }
 
 	return sumTreeScore + noAttachmentScore + config.noiseScore;

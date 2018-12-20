@@ -56,10 +56,10 @@ struct Options
     unsigned numPositions;
 	double dropOutRate;
 	double missingInformation;
-    double clbm; // chromosome loss before mutation happend
-    double clam; // chromosome loss after mutation happend
+    double clbm; // chromosome loss before mutation occurred
+    double clam; // chromosome loss after mutation happened
     double cpn; // fraction of mutations with copy number changes
-    unsigned numRecMut; // number of reccuring mutations
+    unsigned numRecMut; // number of recurring mutations
     unsigned numLossMut; // number of mutations lost
     bool assignMutationsToLeafs;
 	unsigned seed;
@@ -74,6 +74,7 @@ struct Options
         clam(0.0),
         cpn(0.0),
         numRecMut(0),
+        numLossMut(0),
         assignMutationsToLeafs(true),
 		seed(42)
 	{};
@@ -302,20 +303,25 @@ bool recMutInDifferentLineages(unsigned firstPlace,
     return true;
     
 }
+
+// This function checks if two random nodes are in the same lineage and that they are not in a parent relationship.
 bool lossInSameLineage(unsigned firstPlace,
                                 unsigned secondPlace,
                                 unsigned mut,
                                 std::vector<unsigned> const & treeStructure)
 {
+    // Check whether the two nodes are in a parent relationship.
     if ( (firstPlace == secondPlace) || (treeStructure[secondPlace] == firstPlace) )
     {
         return false;
     }
-    
+
+    // Check if the two nodes are in the same lineage.
     while(secondPlace != -1)
     {
         if (secondPlace == firstPlace)
         {
+            // return true if both conditions are met
             return true;
         }
         secondPlace = treeStructure[secondPlace];
@@ -565,6 +571,7 @@ void sampleMutationPositionsOnGenome(std::map<unsigned, unsigned> & positionMap,
             positionMap.insert(std::pair<unsigned, unsigned>(pos, i));
             positionVec[i] = pos;
         }
+        std::cout << "pos: " << i << " " << pos << std::endl;
     }
 }
 

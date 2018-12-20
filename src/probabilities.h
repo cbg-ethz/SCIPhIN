@@ -154,6 +154,17 @@ addLogProbWeight(double x, double y, double nu) // = (1.0 - nu) * x + nu * y
     return std::log(nu + (1.0 - nu) * std::exp(x-y)) + y;
 }
 
+inline
+double
+addLog_nan_x(double nan, double x)
+{
+    if (std::isnan(nan))
+    {
+        return x;
+    }
+    return addLogProb(nan, x);
+}
+
 template <typename TTreeType>
 double
 computeRawWildLogScore(Config<TTreeType> const & config, double altCount, double coverage)

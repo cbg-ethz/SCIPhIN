@@ -24,11 +24,14 @@
 #ifndef ATTACHMENTSCORES_H
 #define ATTACHMENTSCORES_H
 
+#include <limits.h>
+
 #include "sciphi_config.h"
 
 // Forward declaration
 double addLogProbWeight(double x, double y, double nu);
 double addLogProb(double x, double y);
+double addLog_nan_x(double result, double rlNScore);
 
 /*
  * This class stores values associated with the attachment of mutatations
@@ -250,20 +253,16 @@ struct AttachmentScore{
             return;
         }
 
-        // this is currently alwas true as the mixture is still experimental
-        // combine the hetero and the homozygous score
-        if (!useMixture || 
-                isnan(this->mixWildScore()))
+        if (!useMixture || isnan(this->mixWildScore()))
         {
             this->finalScore() = addLogProbWeight(this->hetScore() - std::log(numNodes * 2 + 1), this->homScore() - std::log(numNodes), nu);
             return;
         }
 
-        double mixHomo = addLogProbWeight(this->mixWildScore(), this->mixHomScore(), 0.5) - std::log(numMutPlacements);
-        double mix = addLogProbWeight(this->hetScore() - std::log(numNodes * 2 + 1), mixHomo, lambda);
-        double score = addLogProbWeight(mix, this->homScore()  - std::log(numNodes), nu);
+        double loss = addLogProbWeight(this->mixWildScore(), this->mixHomScore(), 0.5);
+        this->finalScore() = std::log((1.0 - lambda - nu) / (numNodes * 2 + 1) * std::exp(this->hetScore()) + nu /numNodes * std::exp(this->homScore()) + lambda / numMutPlacements * std::exp(loss));
 
-        this->finalScore() = score;
+        return;
     }
    
     AttachmentScore cellProbReal(AttachmentScore const & sumReal)
@@ -508,172 +507,157 @@ struct AttachmentScores
         this->mixHomScore(attachPoint) = computeLogMixScoreLeaf();
     }
 
-    // This function is experimental
-    // It is used to compute the mixture homozygous alternative score.
-    // Here the chromosom without a mutation is lost after the mutatiin
-    // manifested itself.
+
+    template<typename TTree>
     void computeLogMixHomScoreInnerNode(
-            unsigned attachPoint, 
-            bool innerNodeLeft, 
-            double homScoreLeft, 
-            double mixHomScoreLeft,
-            double hetScoreLeft,
-            bool innerNodeRight, 
-            double homScoreRight, 
-            double mixHomScoreRight,
-            double hetScoreRight)
+            TTree const & tree,
+            unsigned attachPoint)
     {
-        // if both children are leaves no mix score can be computed
-        if (!innerNodeLeft && !innerNodeRight)
-        {
-            this->mixHomScore(attachPoint) = std::nan("");
-            return;
-        }
-
-        // if the left child is an inner node a mix score can be computed
         double result = std::nan("");
-        if (innerNodeLeft && !innerNodeRight)
-        {
-            // compute the mixture score from the homozygous alternative
-            // and hetero score of the children
-            result = homScoreLeft + hetScoreRight;
-            
-            // if the is a mixture score in the inner node add the mixture score
-            if (!isnan(mixHomScoreLeft))
-            {
-                result = addLogProb(result, mixHomScoreLeft + hetScoreRight);
+        auto it = out_edges(attachPoint, tree).first;
+        unsigned lN = target(*it, tree); // left node i
+        unsigned rN = target(*(it + 1), tree); // right node id
+
+        // check if left child is inner node
+
+        bool lNisInnerNode = tree[lN].sample == -1;
+        if(lNisInnerNode) {
+
+            // check if left child of the left child is an inner node
+            auto lIt = out_edges(lN, tree).first;
+            unsigned llN =  target(*lIt, tree);// left child of left node
+            bool llNisInnerNode = tree[llN].sample == -1;
+            if (llNisInnerNode) {
+                result = this->hetScore(attachPoint)
+                         - this->hetScore(llN)
+                         + this->homScore(llN);
             }
-            this->mixHomScore(attachPoint) = result;
-            return;
-        }
-        
-        // if the right child is an inner node a mix score can be computed
-        if (!innerNodeLeft && innerNodeRight)
-        {
-            // compute the mixture score from the homozygous alternative
-            // and hetero score of the children
-            result = homScoreRight + hetScoreLeft;
-            
-            // if the is a mixture score in the inner node add the mixture score
-            if (!isnan(mixHomScoreRight))
-            {
-                result = addLogProb(result, mixHomScoreRight + hetScoreLeft);
+
+            // check if right child of the left child is an inner node
+            unsigned rlN = target(*(lIt + 1), tree); // right child of left node
+            bool rlNisInnerNode = tree[rlN].sample == -1;
+            if (rlNisInnerNode) {
+                double rlNScore = this->hetScore(attachPoint)
+                        - this->hetScore(rlN)
+                        + this->homScore(rlN);
+
+                result = addLog_nan_x(result, rlNScore);
             }
-            this->mixHomScore(attachPoint) = result;
-            return;
+
+            //check if left child has a mixture score
+            if (!std::isnan(this->mixHomScore(lN)))
+            {
+                result = addLogProb(result,
+                        this->mixHomScore(lN) + this->hetScore(rN));
+            }
         }
 
-        // if both children are inner nodes proceed similar to above
-        result = homScoreLeft + hetScoreRight;
-        result = addLogProb(result, homScoreRight + hetScoreLeft);
-        if (!isnan(mixHomScoreLeft))
-        {
-            result = addLogProb(result, mixHomScoreLeft + hetScoreRight);
-        }
-        if (!isnan(mixHomScoreRight))
-        {
-            result = addLogProb(result, mixHomScoreRight + hetScoreLeft);
+        // check if left right is inner node
+        bool rNisInnerNode = tree[rN].sample == -1;
+        if(rNisInnerNode) {
+
+            // check if left child of the left child is an inner node
+            auto rIt = out_edges(rN, tree).first;
+            unsigned lrN = target(*rIt, tree);// left child of left node
+            bool lrNisInnerNode = tree[lrN].sample == -1;
+            if (lrNisInnerNode) {
+                double lrNScore = this->hetScore(attachPoint)
+                                  - this->hetScore(lrN)
+                                  + this->homScore(lrN);
+                result = addLog_nan_x(result, lrNScore);
+            }
+
+            // check if right child of the left child is an inner node
+            unsigned rrN = target(*(rIt + 1), tree); // right child of left node
+            bool rrNisInnerNode = tree[rrN].sample == -1;
+            if (rrNisInnerNode) {
+                double rrNScore = this->hetScore(attachPoint)
+                                  - this->hetScore(rrN)
+                                  + this->homScore(rrN);
+                result = addLog_nan_x(result, rrNScore);
+            }
+
+            //check if right child has a mixture score
+            if (!std::isnan(this->mixHomScore(rN))) {
+                result = addLogProb(result,
+                                    this->mixHomScore(rN) + this->hetScore(lN));
+            }
         }
         this->mixHomScore(attachPoint) = result;
     }
 
-
-    // This function is experimental.
-    // It is used to compute the mixture wildtype alternative score.
-    // Here the chromosome with the mutation is lost
+    template<typename TTree>
     void computeLogMixWildScoreInnerNode(
-            unsigned attachPoint,
-            bool innerNodeLeft, 
-            double mixWildScoreLeft,
-            double hetScoreLeft,
-            bool innerNodeRight, 
-            double mixWildScoreRight,
-            double hetScoreRight)
+            TTree const & tree,
+            unsigned attachPoint)
     {
-        // if both children are leaves no mix score can be computed
-        if (!innerNodeLeft && !innerNodeRight)
-        {
-            this->mixWildScore(attachPoint) = std::nan("");
-            return;
-        }
-
         double result = std::nan("");
-        if (innerNodeLeft && !innerNodeRight)
-        {
-            result = hetScoreRight;
-            if (!isnan(mixWildScoreLeft))
-            {
-                result = addLogProb(result, mixWildScoreLeft + hetScoreRight);
+        auto it = out_edges(attachPoint, tree).first;
+        unsigned lN = target(*it, tree); // left node i
+        unsigned rN = target(*(it + 1), tree); // right node id
+
+        // check if left child is inner node
+
+        bool lNisInnerNode = tree[lN].sample == -1;
+        if(lNisInnerNode) {
+
+            // check if left child of the left child is an inner node
+            auto lIt = out_edges(lN, tree).first;
+            unsigned llN =  target(*lIt, tree);// left child of left node
+            bool llNisInnerNode = tree[llN].sample == -1;
+            if (llNisInnerNode) {
+                result = this->hetScore(attachPoint)
+                         - this->hetScore(llN);
             }
-            this->mixWildScore(attachPoint) = result;
-            return;
-        }
-        
-        if (!innerNodeLeft && innerNodeRight)
-        {
-            result = hetScoreLeft;
-            if (!isnan(mixWildScoreRight))
-            {
-                result = addLogProb(result, mixWildScoreRight + hetScoreLeft);
+
+            // check if right child of the left child is an inner node
+            unsigned rlN = target(*(lIt + 1), tree); // right child of left node
+            bool rlNisInnerNode = tree[rlN].sample == -1;
+            if (rlNisInnerNode) {
+                double rlNScore = this->hetScore(attachPoint)
+                        - this->hetScore(rlN);
+
+                result = addLog_nan_x(result, rlNScore);
             }
-            this->mixWildScore(attachPoint) = result;
-            return;
+
+            //check if left child has a mixture score
+            if (!std::isnan(this->mixWildScore(lN)))
+            {
+                result = addLogProb(result,
+                        this->mixWildScore(lN) + this->hetScore(rN));
+            }
         }
 
-        result = addLogProb(hetScoreLeft, hetScoreRight);
-        if (!isnan(mixWildScoreLeft))
-        {
-            result = addLogProb(result, mixWildScoreLeft + hetScoreRight);
-        }
-        if (!isnan(mixWildScoreRight))
-        {
-            result = addLogProb(result, mixWildScoreRight + hetScoreLeft);
+        // check if left right is inner node
+        bool rNisInnerNode = tree[rN].sample == -1;
+        if(rNisInnerNode) {
+
+            // check if left child of the left child is an inner node
+            auto rIt = out_edges(rN, tree).first;
+            unsigned lrN = target(*rIt, tree);// left child of left node
+            bool lrNisInnerNode = tree[lrN].sample == -1;
+            if (lrNisInnerNode) {
+                double lrNScore = this->hetScore(attachPoint)
+                                  - this->hetScore(lrN);
+                result = addLog_nan_x(result, lrNScore);
+            }
+
+            // check if right child of the left child is an inner node
+            unsigned rrN = target(*(rIt + 1), tree); // right child of left node
+            bool rrNisInnerNode = tree[rrN].sample == -1;
+            if (rrNisInnerNode) {
+                double rrNScore = this->hetScore(attachPoint)
+                                  - this->hetScore(rrN);
+                result = addLog_nan_x(result, rrNScore);
+            }
+
+            //check if right child has a mixture score
+            if (!std::isnan(this->mixWildScore(rN))) {
+                result = addLogProb(result,
+                        this->mixWildScore(rN) + this->hetScore(lN));
+            }
         }
         this->mixWildScore(attachPoint) = result;
-    }
-
-
-    // Experimental function
-    // This function computes the final score of an inner node using the 
-    // appropriate weights.
-    void computeLogFinalScoreInnerNode(
-            unsigned attachPoint, 
-            bool innerNodeLeft, 
-            bool innerNodeRight, 
-            double nu, 
-            double lambda,
-            unsigned numNodes,
-            unsigned numMutPlacements)
-    {
-        if (!innerNodeLeft && !innerNodeRight)
-        {
-            this->finalScore(attachPoint) = std::log(1.0 / static_cast<double>(numNodes)) +
-                    addLogProbWeight(// hetero or all homo
-                            this->hetScore(attachPoint), 
-                                    addLogProbWeight(
-                                            this->wildScore(attachPoint),
-                                            this->homScore(attachPoint),
-                                            0.5),
-                            nu);
-            return;
-        }
-        else {
-            this->finalScore(attachPoint) = 
-                    addLogProbWeight(// hetero or homo
-                            std::log(1.0 / static_cast<double>(numNodes)) + this->hetScore(attachPoint), 
-                            addLogProbWeight(// all homozygous
-                                    (1.0 / static_cast<double>(numMutPlacements)) + addLogProbWeight(
-                                            this->wildScore(attachPoint),
-                                            this->homScore(attachPoint),
-                                            0.5),
-                                    addLogProbWeight(
-                                            this->mixWildScore(attachPoint),
-                                            this->mixHomScore(attachPoint),
-                                            0.5),
-                                    lambda), 
-                            nu);
-
-        }
     }
 };
 

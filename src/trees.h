@@ -367,8 +367,8 @@ void printMutation2SampleAssignment(Config<SampleTree> & config,
     outFile.close();
 }
 
-// This class is experimental and computes the number of possibilites a 
-// chromosome could have been lost after a mutation occured
+// This class is experimental and computes the number of possibilities a
+// chromosome could have been lost after a mutation occurred
 class ComputeNumPlacementsDFSVisitor : public boost::default_dfs_visitor
 {
     Config<SampleTree> const & config;
@@ -415,14 +415,40 @@ public:
         }
 
         auto it = out_edges(v,g).first;
-        numPlacements[v] = numPlacements[target(*it, g)] + numPlacements[target(*(it+1), g)];
-        if (g[target(*it, g)].sample == -1)
+        unsigned lN = target(*it, g);
+        unsigned rN = target(*(it + 1), g);
+
+        numPlacements[v] = numPlacements[lN] + numPlacements[rN];
+
+        // go to the left
+        if (g[lN].sample == -1)
         {
-            ++numPlacements[v];
+            auto itL = out_edges(lN,g).first;
+            unsigned llN = target(*itL, g);
+            if(g[llN].sample == -1)
+            {
+                ++numPlacements[v];
+            }
+            unsigned rlN = target(*(itL + 1), g);
+            if(g[rlN].sample == -1)
+            {
+                ++numPlacements[v];
+            }
         }
-        if (g[target(*(it+1), g)].sample == -1)
+        // go to the right
+        if (g[rN].sample == -1)
         {
-            ++numPlacements[v];
+            auto itR = out_edges(rN,g).first;
+            unsigned lrN = target(*itR, g);
+            if(g[lrN].sample == -1)
+            {
+                ++numPlacements[v];
+            }
+            unsigned rrN = target(*(itR + 1), g);
+            if(g[rrN].sample == -1)
+            {
+                ++numPlacements[v];
+            }
         }
         numPlacements.back() += numPlacements[v];
         return ;
@@ -438,6 +464,18 @@ unsigned getNumPlacements(Config<SampleTree> const & config)
    
     return numPlacements.back();
 }
+
+/*
+std::vector<unsigned> getNumPlacements(Config<SampleTree> const & config)
+{
+    static std::vector<unsigned> numPlacements; // static because the vector should be re-used
+    numPlacements.resize(num_vertices(config.getTree()), 0);
+    ComputeNumPlacementsDFSVisitor vis(config, numPlacements);
+    depth_first_search(config.getTree(), visitor(vis).root_vertex(num_vertices(config.getTree()) - 1));
+
+    return numPlacements;
+}
+*/
 
 /*
 template <typename TTreeType>
