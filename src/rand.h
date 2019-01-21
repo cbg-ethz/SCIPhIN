@@ -31,16 +31,16 @@
 #include <stdlib.h>
 #include <time.h>
 
-using namespace std;
+//using namespace std;
 
 
 /*****    functions for sampling random numbers inside C++  *****/
 inline 
 void 
 initRand(){
-	time_t t;
-	time(&t);
-	srand((unsigned int)t);              // initialize random number generator
+	std::time_t t;
+    time(&t);
+    std::srand((unsigned int)t);              // initialize random number generator
 	//srand(1);
 }
 

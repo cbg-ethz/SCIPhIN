@@ -496,7 +496,7 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
             config.data[0].resize(1);
             config._tmpAttachmentScore.resize(15);
 
-            config.computeMixScore = true;
+            config.computeLossScore = true;
             config.setParam(Config<SampleTree>::nu, 0.2);
             config.setParam(Config<SampleTree>::lambda, 0.1);
             config.numMutPlacements[0] = getNumPlacements(config);
@@ -518,25 +518,25 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
                     << " != " << result);
 
             // test the case where the mutation is lost
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(7)),
-                    "config._tmpAttachmentScore.mixWildScore(7) != -inf - "
-                    << config._tmpAttachmentScore.mixWildScore(7));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossWildScore(7)),
+                    "config._tmpAttachmentScore.lossWildScore(7) != -inf - "
+                    << config._tmpAttachmentScore.lossWildScore(7));
 
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(8)),
-                    "config._tmpAttachmentScore.mixWildScore(8) != -inf - "
-                    << config._tmpAttachmentScore.mixWildScore(8));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossWildScore(8)),
+                    "config._tmpAttachmentScore.lossWildScore(8) != -inf - "
+                    << config._tmpAttachmentScore.lossWildScore(8));
 
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(3)),
-                    "config._tmpAttachmentScore.mixWildScore(3) != -inf - "
-                    << config._tmpAttachmentScore.mixWildScore(3));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossWildScore(3)),
+                    "config._tmpAttachmentScore.lossWildScore(3) != -inf - "
+                    << config._tmpAttachmentScore.lossWildScore(3));
 
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(5)),
-                    "config._tmpAttachmentScore.mixWildScore(5) != -inf - "
-                    << config._tmpAttachmentScore.mixWildScore(5));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossWildScore(5)),
+                    "config._tmpAttachmentScore.lossWildScore(5) != -inf - "
+                    << config._tmpAttachmentScore.lossWildScore(5));
 
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixWildScore(6)),
-                    "config._tmpAttachmentScore.mixWildScore(6) != -inf - "
-                    << config._tmpAttachmentScore.mixWildScore(6));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossWildScore(6)),
+                    "config._tmpAttachmentScore.lossWildScore(6) != -inf - "
+                    << config._tmpAttachmentScore.lossWildScore(6));
 
             double los6 = std::log(0.9) - std::log(0.1)
                     + std::log(0.8) - std::log(0.2)
@@ -555,8 +555,8 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
             result = addLogProb(los6, los5);
 
 
-            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.mixWildScore(1)-result)
-                    <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.mixWildScore(1)
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.lossWildScore(1)-result)
+                    <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.lossWildScore(1)
                     << " != " << result);
 
             los6 = std::log(0.9) - std::log(0.1)
@@ -597,30 +597,30 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
 
             result = addLogProb(addLogProb(los6, los5), addLogProb(los4, los3));
 
-            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.mixWildScore(0)-result)
-                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.mixWildScore(0)
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.lossWildScore(0)-result)
+                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.lossWildScore(0)
                                 << " != " << result);
 
             // test the case where the reference allele is lost
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(7)),
-                                "config._tmpAttachmentScore.mixHomScore(7) != -inf - "
-                                        << config._tmpAttachmentScore.mixHomScore(7));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossHomScore(7)),
+                                "config._tmpAttachmentScore.lossAltScore(7) != -inf - "
+                                        << config._tmpAttachmentScore.lossHomScore(7));
 
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(8)),
-                                "config._tmpAttachmentScore.mixHomScore(8) != -inf - "
-                                        << config._tmpAttachmentScore.mixHomScore(8));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossHomScore(8)),
+                                "config._tmpAttachmentScore.lossAltScore(8) != -inf - "
+                                        << config._tmpAttachmentScore.lossHomScore(8));
 
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(3)),
-                                "config._tmpAttachmentScore.mixHomScore(3) != -inf - "
-                                        << config._tmpAttachmentScore.mixHomScore(3));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossHomScore(3)),
+                                "config._tmpAttachmentScore.lossAltScore(3) != -inf - "
+                                        << config._tmpAttachmentScore.lossHomScore(3));
 
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(5)),
-                                "config._tmpAttachmentScore.mixHomScore(5) != -inf - "
-                                        << config._tmpAttachmentScore.mixHomScore(5));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossHomScore(5)),
+                                "config._tmpAttachmentScore.lossAltScore(5) != -inf - "
+                                        << config._tmpAttachmentScore.lossHomScore(5));
 
-            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.mixHomScore(6)),
-                                "config._tmpAttachmentScore.mixHomScore(6) != -inf - "
-                                        << config._tmpAttachmentScore.mixHomScore(6));
+            BOOST_CHECK_MESSAGE(std::isnan(config._tmpAttachmentScore.lossHomScore(6)),
+                                "config._tmpAttachmentScore.lossAltScore(6) != -inf - "
+                                        << config._tmpAttachmentScore.lossHomScore(6));
 
             double hom6 = std::log(0.9) - std::log(0.1)
                           + std::log(0.8) - std::log(0.2)
@@ -638,8 +638,8 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
 
             result = addLogProb(hom6, hom5);
 
-            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.mixHomScore(1)-result)
-                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.mixHomScore(1)
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.lossHomScore(1)-result)
+                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.lossHomScore(1)
                                         << " != " << result);
 
             hom6 = std::log(0.9) - std::log(0.1)
@@ -680,27 +680,27 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
 
             result = addLogProb(addLogProb(hom6, hom5), addLogProb(hom4, hom3));
 
-            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.mixHomScore(0)-result)
-                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.mixHomScore(0)
+            BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.lossHomScore(0)-result)
+                                <= 10 * std::numeric_limits<double>::epsilon(), config._tmpAttachmentScore.lossHomScore(0)
                                         << " != " << result);
 
             result = 1.0/15.0 * 0.8 * exp(config._tmpAttachmentScore.hetScore(0))
                     + 1.0/7.0 * 0.2 * exp(config._tmpAttachmentScore.homScore(0));
             result = std::log(result);
             config._tmpAttachmentScore[0].computeFinalScore(0.2, 0.1, 7, config.numMutPlacements[0],
-                    false, false);
+                    false, false, false);
             BOOST_CHECK_MESSAGE(std::abs(result - config._tmpAttachmentScore[0].finalScore())
                     <=  10.0 * std::numeric_limits<double>::epsilon(), result
                     << " != " << config._tmpAttachmentScore[0].finalScore());
 
             result = 0.7 * 1.0/15.0 * exp(config._tmpAttachmentScore.hetScore(0))
                     + 1.0/7.0 * 0.2 * exp(config._tmpAttachmentScore.homScore(0))
-                    + 0.1 *1.0/6.0 * (exp(config._tmpAttachmentScore.mixWildScore(0))
-                    + exp(config._tmpAttachmentScore.mixHomScore(0))) /2.0;
+                    + 0.1 *1.0/6.0 * (exp(config._tmpAttachmentScore.lossWildScore(0))
+                    + exp(config._tmpAttachmentScore.lossHomScore(0))) /2.0;
             result = std::log(result);
 
             config._tmpAttachmentScore[0].computeFinalScore(0.2, 0.1, 7, config.numMutPlacements[0],
-                                                            false, true);
+                                                            false, true, false);
             BOOST_CHECK_MESSAGE(std::abs(result - config._tmpAttachmentScore[0].finalScore())
                                 <=  10.0 * std::numeric_limits<double>::epsilon(), result
                                 << " != " << config._tmpAttachmentScore[0].finalScore());
@@ -709,8 +709,8 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
 
             double a = config._tmpAttachmentScore.hetScore(0);
             double b = config._tmpAttachmentScore.homScore(0);
-            double c = config._tmpAttachmentScore.mixWildScore(0);
-            double d = config._tmpAttachmentScore.mixHomScore(0);
+            double c = config._tmpAttachmentScore.lossWildScore(0);
+            double d = config._tmpAttachmentScore.lossHomScore(0);
 
             std::cout << 0 << " " << config._tmpAttachmentScore[0] << std::endl;
 
@@ -722,8 +722,8 @@ BOOST_AUTO_TEST_CASE( sample_tree_compute_score )
                 b = addLogProb(b, config._tmpAttachmentScore.homScore(i));
             }
 
-            c = addLogProb(c, config._tmpAttachmentScore.mixWildScore(1));
-            d = addLogProb(d, config._tmpAttachmentScore.mixHomScore(1));
+            c = addLogProb(c, config._tmpAttachmentScore.lossWildScore(1));
+            d = addLogProb(d, config._tmpAttachmentScore.lossHomScore(1));
 
             std::cout << a << " " << b << " " << c << " " << d << " " << std::log(0.7 * 1.0/15.0 * exp(a)
             + 1.0/7.0 * 0.2 * exp(b)

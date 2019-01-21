@@ -90,10 +90,10 @@ public:
         {
             attachmentScores.computeLogHetScoreLeaf(v, this->config.getLogScores().wtScore(g[v].sample, gene), this->config.getLogScores().hetScore(g[v].sample, gene));
             attachmentScores.computeLogHomScoreLeaf(v, this->config.getLogScores().wtScore(g[v].sample, gene), this->config.getLogScores().homScore(g[v].sample, gene));
-            if (config.computeMixScore) // experimental
+            if (config.computeLossScore) // experimental
             {
-                attachmentScores.computeLogMixWildScoreLeaf(v);
-                attachmentScores.computeLogMixHomScoreLeaf(v);
+                attachmentScores.computeLogLossWildScoreLeaf(v);
+                attachmentScores.computeLogLossHomScoreLeaf(v);
             }
             // add hetero score to overall tree score
             scoreSum.hetScore() = addLogProb(scoreSum.hetScore(), attachmentScores[v].hetScore());
@@ -107,20 +107,20 @@ public:
         scoreSum.hetScore() = addLogProb(scoreSum.hetScore(), attachmentScores[v].hetScore());
         scoreSum.homScore() = addLogProb(scoreSum.homScore(), attachmentScores[v].homScore());
 
-        if (config.computeMixScore) // experimental
+        if (config.computeLossScore) // experimental
         {
 
             unsigned leftNodeId = target(*it, g);
             unsigned rightNodeId = target(*(it + 1), g);
             bool innerNodeLeft = g[leftNodeId].sample == -1;
             bool innerNodeRight = g[rightNodeId].sample == -1;
-            attachmentScores.computeLogMixWildScoreInnerNode(g, v);
-            attachmentScores.computeLogMixHomScoreInnerNode(g, v);
+            attachmentScores.computeLogLossWildScoreInnerNode(g, v);
+            attachmentScores.computeLogLossHomScoreInnerNode(g, v);
 
             if(innerNodeLeft || innerNodeRight)
             {
-                scoreSum.mixWildScore() = addLog_nan_x(scoreSum.mixWildScore(), attachmentScores[v].mixWildScore());
-                scoreSum.mixHomScore() = addLog_nan_x(scoreSum.mixHomScore(), attachmentScores[v].mixHomScore());
+                scoreSum.lossWildScore() = addLog_nan_x(scoreSum.lossWildScore(), attachmentScores[v].lossWildScore());
+                scoreSum.lossAltScore() = addLog_nan_x(scoreSum.lossAltScore(), attachmentScores[v].lossAltScore());
             }
         }
         return ;
@@ -157,7 +157,8 @@ double getBestAttachmentScore(Config<TTreeType> & config,
             config.getNumSamples() -1,
             config.numMutPlacements[0],
             config.getTree()[0].sample != -1,
-            config.computeMixScore);
+            config.computeLossScore,
+            config.computeParallelScore);
 	double bestScore = attachmentScores[0].finalScore();
     for (unsigned i = 1; i < attachmentScores.size(); ++i)
     {
@@ -167,7 +168,8 @@ double getBestAttachmentScore(Config<TTreeType> & config,
             config.getNumSamples() -1,
             config.numMutPlacements[0],
             config.getTree()[i].sample != -1,
-            config.computeMixScore);
+            config.computeLossScore,
+            config.computeParallelScore);
         if (attachmentScores[i].finalScore() > bestScore)
         {
             bestScore = attachmentScores[i].finalScore();
@@ -194,7 +196,8 @@ unsigned getBestAttachmentPosition(Config<TTreeType> & config,
             config.getNumSamples() -1,
             config.numMutPlacements[0],
             config.getTree()[0].sample != -1,
-            config.computeMixScore);
+            config.computeLossScore,
+            config.computeParallelScore);
 	double bestScore = attachmentScores[0].finalScore();
     for (unsigned i = 1; i < attachmentScores.size(); ++i)
     {
@@ -204,7 +207,8 @@ unsigned getBestAttachmentPosition(Config<TTreeType> & config,
             config.getNumSamples() -1,
             config.numMutPlacements[0],
             config.getTree()[i].sample != -1,
-            config.computeMixScore);
+            config.computeLossScore,
+            config.computeParallelScore);
         if (attachmentScores[i].finalScore() > bestScore)
         {
             bestScore = attachmentScores[i].finalScore();
@@ -244,7 +248,7 @@ double maxScoreTree(Config<SampleTree> & config)
   		treeScore += getBestAttachmentScore(config, mut);
     }
     
-    if (config.computeMixScore) // experimental
+    if (config.computeLossScore) // experimental
     {
 	    return treeScore + noAttachmentScore + config.noiseScore + clamPriorLog(config);
     }
@@ -266,7 +270,8 @@ double getSumAttachmentScore(Config<TTreeType> & config,
             config.getNumSamples() - 1,
             config.numMutPlacements[0],
             false,
-            config.computeMixScore);
+            config.computeLossScore,
+            config.computeParallelScore);
 
     return scoreSum.finalScore();
 }
@@ -301,7 +306,7 @@ double sumScoreTree(Config<TTreeType> & config)
 		sumTreeScore += getSumAttachmentScore(config, attachment);
 	}
 
-    if (config.computeMixScore)
+    if (config.computeLossScore)
     {
         return sumTreeScore + noAttachmentScore + config.noiseScore; // + clamPriorLog(config);
     }

@@ -760,7 +760,7 @@ bool computeProbCellsAreMutated(
     // compute the probabilitues of observing 1, 2, 3, ... mutations
     double logH1Max = -DBL_MAX; // the current best alternative score
     long double logNOverK = 0;  // helper to efficiently compute nChooseK
-    size_t numMut = 1;          // number of mutations currently computet
+    size_t numMut = 1;          // number of mutations currently computed
     
     for (; numMut <= numCells; ++numMut)
     {

@@ -30,294 +30,280 @@
 
 // Forward declaration
 double addLogProbWeight(double x, double y, double nu);
+
 double addLogProb(double x, double y);
+
 double addLog_nan_x(double result, double rlNScore);
 
 /*
- * This class stores values associated with the attachment of mutatations
+ * This class stores values associated with the attachment of mutations
  * to nodes in the phylogenetic tree.
- * Here N is the number of different attachment scores (currently only 5 is
- * used).
  */
-template <unsigned N>
-struct AttachmentScore{
+struct AttachmentScore {
 
-    typedef std::array<double, N> TAttachmentScore;
+    typedef std::array<double, 9> TAttachmentScore;
 
     TAttachmentScore attachmentScore;
+
+
+    enum Type {
+        E_hetScore = 0,         // all cells below the node are heterozygous
+        E_homScore = 1,         // all cells below the node are homozygous
+        E_hetSumScore = 2,      // the sum of all hetScores below the node
+        E_lossAltScore = 3,     // a mutation is gained in the node and the mutated/altered allele is lost in any
+        // node below
+                E_lossAltScoreR = 4,    // a mutation is gained in the node and the mutated/altered allele is lost in any
+        // node below except for the child nodes
+                E_lossWildScore = 5,     // a mutation is gained in the node and the reference allele is lost in any node below
+        // except for the child nodes
+                E_lcaScore = 6,         // probability that the node is the lowest common ancestor of two independent mutation
+        // events
+                E_lcaScoreR = 7,        // probability that the node is the lowest common ancestor of two independent mutation
+        // events with additional restrictions
+                E_finalScore = 8        // final combined score
+    };
 
     // init everything to -INFINITY because we are doing the computation in 
     // log space and exp(-INFINITY) = 0
     AttachmentScore() :
-        attachmentScore({{-INFINITY,-INFINITY,-INFINITY,-INFINITY,-INFINITY}}) {};
-    
-    std::array<double, N> makeArray()
-    {
-        std::array<double, N> result;
-        result[0]=this->hetScore();
-        result[1]=this->homScore();
-        result[N-1]=this->finalScore();
+            attachmentScore({{-INFINITY,
+                                     -INFINITY,
+                                     -INFINITY,
+                                     -INFINITY,
+                                     -INFINITY,
+                                     -INFINITY,
+                                     -INFINITY,
+                                     -INFINITY,
+                                     -INFINITY}}) {};
 
-        if (N == 3)
-        {
-            return result;
-        }
-
-        result[2]=this->mixWildScore();
-        result[3]=this->mixHomScore();
-        return result;
-    }
-    
     // transform attachment scores into log
-    void log()
-    {
-        for (unsigned i = 0; i < N; ++i)
-        {
+    void log() {
+        for (unsigned i = 0; i < this->attachmentScore.size(); ++i) {
             this->attachmentScore[i] = std::log(this->attachmentScore[i]);
         }
     }
 
     // exponentiate attachment scores
-    void exp()
-    {
-        for (unsigned i = 0; i < N; ++i)
-        {
+    void exp() {
+        for (unsigned i = 0; i < 7; ++i) {
             this->attachmentScore[i] = std::exp(this->attachmentScore[i]);
         }
     }
 
-    double & hetScore()
-    {
-        return this->attachmentScore[0];
-    }
-    double const & hetScore() const
-    {
-        return this->attachmentScore[0];
+    double &hetScore() {
+        return this->attachmentScore[E_hetScore];
     }
 
-    double & homScore()
-    {
-        return this->attachmentScore[1];
-    }
-    double const & homScore() const
-    {
-        return this->attachmentScore[1];
-    }
-    
-    double & mixWildScore()
-    {
-        return this->attachmentScore[2];
-    }
-    double const & mixWildScore() const
-    {
-        return this->attachmentScore[2];
-    }
-    
-    double & mixHomScore()
-    {
-        return this->attachmentScore[3];
-    }
-    double const & mixHomScore() const
-    {
-        return this->attachmentScore[3];
+    double const &hetScore() const {
+        return this->attachmentScore[E_hetScore];
     }
 
-    double & finalScore()
-    {
-        return this->attachmentScore[N-1];
-    }
-    double const & finalScore() const
-    {
-        return this->attachmentScore[N-1];
+    double &sumHetScore() {
+        return this->attachmentScore[E_hetSumScore];
     }
 
-    AttachmentScore & operator+=(AttachmentScore const & rightSide)
-    {
+    double const &sumHetScore() const {
+        return this->attachmentScore[E_hetSumScore];
+    }
+
+    double &homScore() {
+        return this->attachmentScore[E_homScore];
+    }
+
+    double const &homScore() const {
+        return this->attachmentScore[E_homScore];
+    }
+
+    double &lossWildScore() {
+        return this->attachmentScore[E_lossWildScore];
+    }
+
+    double const &lossWildScore() const {
+        return this->attachmentScore[E_lossWildScore];
+    }
+
+    double &lossAltScore() {
+        return this->attachmentScore[E_lossAltScore];
+    }
+
+    double const &lossAltScore() const {
+        return this->attachmentScore[E_lossAltScore];
+    }
+
+    double &lcaScore() {
+        return this->attachmentScore[E_lcaScore];
+    }
+
+    double const &paralleleScore() const {
+        return this->attachmentScore[E_lcaScore];
+    }
+
+    double &finalScore() {
+        return this->attachmentScore[E_finalScore];
+    }
+
+    double const &finalScore() const {
+        return this->attachmentScore[E_finalScore];
+    }
+
+    /*AttachmentScore &operator+=(AttachmentScore const &rightSide) {
         this->hetScore() += rightSide.hetScore();
         this->homScore() += rightSide.homScore();
-        if (N > 3)
-        {
-            // this check is necessary as there is not always a mix score available to be added
-            if(!isnan(rightSide.mixWildScore())) 
-            {
-                this->mixWildScore() += rightSide.mixWildScore();
-            }
-            if(!isnan(rightSide.mixHomScore()))
-            {
-                this->mixHomScore() += rightSide.mixHomScore();
-            }
+        // this check is necessary as there is not always a loss score available to be added
+        if (!isnan(rightSide.lossWildScore())) {
+            this->lossWildScore() += rightSide.lossWildScore();
         }
-        this->finalScore() += rightSide.finalScore();
-
-        return *this;
-    }
-    AttachmentScore & operator+=(TAttachmentScore & rightSide)
-    {
-        this->hetScore() += rightSide.hetScore();
-        this->homScore() += rightSide.homScore();
-        if (N > 3)
-        {
-            // this check is necessary as there is not always a mix score available to be added
-            if(!isnan(rightSide.mixWildScore()))
-            {
-                this->mixWildScore() += rightSide.mixWildScore();
-            }
-            if(!isnan(rightSide.mixHomScore()))
-            {
-                this->mixHomScore() += rightSide.mixHomScore();
-            }
+        if (!isnan(rightSide.lossAltScore())) {
+            this->lossAltScore() += rightSide.lossAltScore();
         }
         this->finalScore() += rightSide.finalScore();
 
         return *this;
     }
 
-    AttachmentScore & operator-=(AttachmentScore & rightSide)
-    {
+    AttachmentScore &operator+=(AttachmentScore &rightSide) {
+        this->hetScore() += rightSide.hetScore();
+        this->homScore() += rightSide.homScore();
+
+        // this check is necessary as there is not always a loss score available to be added
+        if (!isnan(rightSide.lossWildScore())) {
+            this->lossWildScore() += rightSide.lossWildScore();
+        }
+        if (!isnan(rightSide.lossAltScore())) {
+            this->lossAltScore() += rightSide.lossAltScore();
+        }
+        this->finalScore() += rightSide.finalScore();
+
+        return *this;
+    }*/
+
+    AttachmentScore &operator-=(AttachmentScore &rightSide) {
+        for (unsigned i =0; i < this->attachmentScore.size(); ++i)
+        {
+            this->attachmentScore[i] -= rightSide.attachmentScore[i];
+        }
+
+        /*
         this->hetScore() -= rightSide.hetScore();
         this->homScore() -= rightSide.homScore();
-        if (N > 3)
-        {
-            // this check is necessary as there is not always a mix score available to be added
-            if(!isnan(rightSide.mixWildScore()))
-            {
-                this->mixWildScore() -= rightSide.mixWildScore();
-            }
-            if(!isnan(rightSide.mixHomScore()))
-            {
-                this->mixHomScore() -= rightSide.mixHomScore();
-            }
+        // this check is necessary as there is not always a loss score available to be added
+        if (!isnan(rightSide.lossWildScore())) {
+            this->lossWildScore() -= rightSide.lossWildScore();
+        }
+        if (!isnan(rightSide.lossAltScore())) {
+            this->lossAltScore() -= rightSide.lossAltScore();
         }
         this->finalScore() -= rightSide.finalScore();
+         */
 
         return *this;
-    }
-    
-    bool operator!=(AttachmentScore & rightSide)
-    {
-        if (this->hetScore() != rightSide.hetScore())
-            return false;
-        if (this->homScore() != rightSide.homScore())
-            return false;
-        if (this->mixWildScore() != rightSide.mixWildScore())
-            return false;
-        if (this->mixHomScore() != rightSide.mixHomScore())
-            return false;
-        if (this->finalScore() != rightSide.finalScore())
-            return false;
-        return true;
     }
 
     // this function takes two scores in log space, exponentiates them and 
     // returns the log of the sum
-    void addInRealSpace(AttachmentScore const & rightSide)
-    {
+
+    void addInRealSpace(AttachmentScore const &rightSide) {
+        for (unsigned i = 0; i < this->attachmentScore.size(); ++i) {
+            this->attachmentScore[i] = addLogProb(this->attachmentScore[i], rightSide.attachmentScore[i]);
+        }
+
+        /*
         this->hetScore() = addLogProb(this->hetScore(), rightSide.hetScore());
         this->homScore() = addLogProb(this->homScore(), rightSide.homScore());
-        if (N > 3)
-        {
-            if(!isnan(rightSide.mixWildScore()))
-            {
-                this->mixWildScore() = addLogProb(this->mixWildScore(), rightSide.mixWildScore());
-            }
-            if(!isnan(rightSide.mixHomScore()))
-            {
-                this->mixHomScore() = addLogProb(this->mixHomScore(), rightSide.mixHomScore());
-            }
+        if (!isnan(rightSide.lossWildScore())) {
+            this->lossWildScore() = addLogProb(this->lossWildScore(), rightSide.lossWildScore());
         }
-        this->finalScore() = addLogProb(this->finalScore(), rightSide.finalScore());
+        if (!isnan(rightSide.lossAltScore())) {
+            this->lossAltScore() = addLogProb(this->lossAltScore(), rightSide.lossAltScore());
+        }
+        this->finalScore() = addLogProb(this->finalScore(), rightSide.finalScore());*/
     }
 
-    AttachmentScore & operator/=(double rightSide)
-    {
-        for (unsigned i = 0; i < N; ++i)
-        {
+    AttachmentScore &operator/=(double rightSide) {
+        for (unsigned i = 0; i < 8; ++i) {
             this->attachmentScore[i] /= rightSide;
         }
         return *this;
     }
-   
+
     // this functions computes the final score of an attachment point
     void computeFinalScore(
-            double nu, 
+            double nu,
             double lambda,
             unsigned numNodes,
             unsigned numMutPlacements,
             bool isLeaf,
-            bool useMixture)
-    {
+            bool useLoss,
+            bool useParallel) {
         // if the node is a leaf just return the weighted hetero score
-        if (isLeaf)
-        {
+        if (isLeaf) {
             this->finalScore() = this->hetScore() - std::log(numNodes * 2 + 1);
             return;
         }
 
-        if (!useMixture || isnan(this->mixWildScore()))
-        {
-            this->finalScore() = addLogProbWeight(this->hetScore() - std::log(numNodes * 2 + 1), this->homScore() - std::log(numNodes), nu);
+        if (!useLoss) { // || isnan(this->lossWildScore())) {
+            this->finalScore() = addLogProbWeight(this->hetScore() - std::log(numNodes * 2 + 1),
+                                                  this->homScore() - std::log(numNodes), nu);
             return;
         }
 
-        double loss = addLogProbWeight(this->mixWildScore(), this->mixHomScore(), 0.5);
-        this->finalScore() = std::log((1.0 - lambda - nu) / (numNodes * 2 + 1) * std::exp(this->hetScore()) + nu /numNodes * std::exp(this->homScore()) + lambda / numMutPlacements * std::exp(loss));
+        if (!useParallel) {
+            double loss = addLogProbWeight(this->lossWildScore(), this->lossAltScore(), 0.5);
+            this->finalScore() = std::log((1.0 - lambda - nu) / (numNodes * 2 + 1) * std::exp(this->hetScore()) +
+                                          nu / numNodes * std::exp(this->homScore()) +
+                                          lambda / numMutPlacements * std::exp(loss));
+        }
+
+
+
 
         return;
     }
-   
-    AttachmentScore cellProbReal(AttachmentScore const & sumReal)
-    {
+
+    AttachmentScore cellProbReal(AttachmentScore const &sumReal) {
         AttachmentScore result = {};
-        result.hetScore()=this->hetScore()/sumReal.hetScore();
-        result.homScore()=this->homScore()/sumReal.homScore();
-        result.mixWildScore()=this->mixWildScore()/sumReal.mixWildScore();
-        result.mixHomScore()=this->mixHomScore()/sumReal.mixHomScore();
-        result.finalScore()=this->finalScore()/sumReal.finalScore();
+        result.hetScore() = this->hetScore() / sumReal.hetScore();
+        result.homScore() = this->homScore() / sumReal.homScore();
+        result.lossWildScore() = this->lossWildScore() / sumReal.lossWildScore();
+        result.lossAltScore() = this->lossAltScore() / sumReal.lossAltScore();
+        result.finalScore() = this->finalScore() / sumReal.finalScore();
 
         return result;
     }
 
-    void setMinusInfinity()
-    {
+    void setMinusInfinity() {
         this->hetScore() = -INFINITY;
-        this->homScore()= -INFINITY;
-        this->mixWildScore() = -INFINITY;
-        this->mixHomScore() = -INFINITY;
+        this->homScore() = -INFINITY;
+        this->lossWildScore() = -INFINITY;
+        this->lossAltScore() = -INFINITY;
         this->finalScore() = -INFINITY;
     }
 };
 
-template <unsigned N>
-std::ostream& operator<<(std::ostream& os, AttachmentScore<N> const & obj)
-{
-    os << obj.hetScore() << "|" << obj.homScore(); 
-    if (N == 3)
-    {
+template<unsigned N>
+std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
+    os << obj.hetScore() << "|" << obj.homScore();
+    if (N == 3) {
         return os << "|" << obj.finalScore();
     }
-    os << "|" << obj.mixWildScore() << "|" << obj.mixHomScore() << "|" << obj.finalScore();
+    os << "|" << obj.lossWildScore() << "|" << obj.lossAltScore() << "|" << obj.finalScore();
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, AttachmentScore<3> const & obj)
-{
-    os << obj.hetScore() << "|" << obj.homScore() << "|" << obj.finalScore();
+std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
+    os << obj.hetScore() << "|" <<
+       obj.homScore() << "|" <<
+       obj.lossWildScore() << "|" <<
+                                  obj.lossAltScore() << "|" <<
+       obj.paralleleScore() << "|" <<
+       obj.finalScore();
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, AttachmentScore<5> const & obj)
-{
-    os << obj.hetScore() << "|" << obj.homScore() << "|" << obj.mixWildScore() << "|" << obj.mixHomScore() << "|" << obj.finalScore();
-    return os;
-}
-
-template <unsigned N>
-AttachmentScore<N> operator+(AttachmentScore<N> & leftSide, AttachmentScore<N> & rightSide)
-{
-    AttachmentScore<N> result;
-    for (unsigned i = 0; i < N; ++i)
-    {
-        result.attachmentScore[i] =leftSide.attachmentScore[i] + rightSide.attachmentScore[i];
+AttachmentScore operator+(AttachmentScore &leftSide, AttachmentScore &rightSide) {
+    AttachmentScore result;
+    for (unsigned i = 0; i < 8; ++i) {
+        result.attachmentScore[i] = leftSide.attachmentScore[i] + rightSide.attachmentScore[i];
     }
     return result;
 }
@@ -325,194 +311,115 @@ AttachmentScore<N> operator+(AttachmentScore<N> & leftSide, AttachmentScore<N> &
 /*
  * This class combines many AttachmentScores into one object
  */
-template <unsigned N>
-struct AttachmentScores
-{
-    typedef AttachmentScore<N> TAttachmentScore;
-    typedef std::vector<AttachmentScore<N>> TAttachmentScores;
+struct AttachmentScores {
+    typedef AttachmentScore TAttachmentScore;
+    typedef std::vector<AttachmentScore> TAttachmentScores;
 
     TAttachmentScores attachmentScores;
 
-    AttachmentScore<N> & operator[](unsigned pos)
-    {
-        return this->attachmentScores[pos];
-    }
-    
-    AttachmentScore<N> const & operator[](unsigned pos) const
-    {
+    AttachmentScore &operator[](unsigned pos) {
         return this->attachmentScores[pos];
     }
 
-    double & hetScore(unsigned attachPoint)
-    {
-        return this->attachmentScores[attachPoint].hetScore();
+    AttachmentScore const &operator[](unsigned pos) const {
+        return this->attachmentScores[pos];
     }
-    double const & hetScore(unsigned attachPoint) const
-    {
+
+    double &hetScore(unsigned attachPoint) {
         return this->attachmentScores[attachPoint].hetScore();
     }
 
-    double & homScore(unsigned attachPoint)
-    {
+    double const &hetScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].hetScore();
+    }
+
+    double &homScore(unsigned attachPoint) {
         return this->attachmentScores[attachPoint].homScore();
     }
-    double const & homScore(unsigned attachPoint) const
-    {
+
+    double const &homScore(unsigned attachPoint) const {
         return this->attachmentScores[attachPoint].homScore();
     }
-    
-    double & mixWildScore(unsigned attachPoint)
-    {
-        return this->attachmentScores[attachPoint].mixWildScore();
+
+    double &lossWildScore(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].lossWildScore();
     }
-    double const & mixWildScore(unsigned attachPoint) const
-    {
-        return this->attachmentScores[attachPoint].mixWildScore();
+
+    double const &lossWildScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].lossWildScore();
     }
-    
-    double & mixHomScore(unsigned attachPoint)
-    {
-        return this->attachmentScores[attachPoint].mixHomScore();
+
+    double &lossHomScore(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].lossAltScore();
     }
-    double const & mixHomScore(unsigned attachPoint) const
-    {
-        return this->attachmentScores[attachPoint].mixHomScore();
+
+    double const &lossHomScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].lossAltScore();
     }
-    
-    unsigned size()
-    {
+
+    unsigned size() {
         return this->attachmentScores.size();
     }
-    
-    void resize(unsigned newSize)
-    {
+
+    void resize(unsigned newSize) {
         this->attachmentScores.resize(newSize);
     }
 
-    AttachmentScore<N> max()
-    {
-        AttachmentScore<N> result = this->attachmentScores[0];
+    /*
+    AttachmentScore max() {
+        AttachmentScore result = this->attachmentScores[0];
 
-        for (unsigned i = 1; i < this->size(); ++i)
-        {
-            if (result.hetScore() < this->attachmentScores[i].hetScore())
-            {
-                result.hetScore()=this->attachmentScores[i].hetScore();
+        for (unsigned i = 1; i < this->size(); ++i) {
+            if (result.hetScore() < this->attachmentScores[i].hetScore()) {
+                result.hetScore() = this->attachmentScores[i].hetScore();
             }
-            if (result.homScore() < this->attachmentScores[i].homScore())
-            {
+            if (result.homScore() < this->attachmentScores[i].homScore()) {
                 result.homScore() = this->attachmentScores[i].homScore();
             }
-            if (result.mixWildScore() < this->attachmentScores[i].mixWildScore())
-            {
-                result.mixWildScore() = this->attachmentScores[i].mixWildScore();
+            if (result.lossWildScore() < this->attachmentScores[i].lossWildScore()) {
+                result.lossWildScore() = this->attachmentScores[i].lossWildScore();
             }
-            if (result.mixHomScore() < this->attachmentScores[i].mixHomScore())
-            {
-                result.mixHomScore() = this->attachmentScores[i].mixHomScore();
+            if (result.lossAltScore() < this->attachmentScores[i].lossAltScore()) {
+                result.lossAltScore() = this->attachmentScores[i].lossAltScore();
             }
         }
         return result;
     }
+     */
 
-    /*
-    // this function sum the individual attachment scores provided a max value (in log space)
-    AttachmentScore<N> sumInReal(AttachmentScore<N> const & max)
-    {
-        AttachmentScore<N> result;
-        for (unsigned i = 1; i < this->size(); ++i)
-        {
-            result.hetScore() += std::exp(this->attachmentScores[i].hetScore() - max.hetScore());
-            result.homScore() += std::exp(this->attachmentScores[i].homScore() - max.homScore());
-            result.mixWildScore() += std::exp(this->attachmentScores[i].mixWildScore() - max.mixWildScore());
-            result.mixHomScore() += std::exp(this->attachmentScores[i].mixHomScore() - max.mixHomScore());
-
-        }
-        result.hetScore() = std::log(result.hetScore()) + max.hetScore();
-        result.homScore() = std::log(result.homScore()) + max.homScore();
-        result.mixWildScore() = std::log(result.mixWildScore()) + max.mixWildScore();
-        result.mixHomScore() = std::log(result.mixHomScore()) + max.mixHomScore();
-        return result;
+    void computeLogHetScoreLeaf(unsigned attachPoint, double wtScore, double hetScore) {
+        this->hetScore(attachPoint) = hetScore - wtScore;
     }
 
-    AttachmentScore<N> sumInReal()
-    {
-        AttachmentScore<N> max = this->max();
-        return sumInReal(max);
-    }
-
-    template <typename TTree>
-    AttachmentScore<N> cellSumReal(TTree const & tree, unsigned currentNode, AttachmentScore<N> const & max)
-    {
-        AttachmentScore<N> result = {};
-        while(currentNode != num_vertices(tree) - 1)
-        {
-            result.hetScore() += std::exp(this->attachmentScores[currentNode].hetScore() - max.hetScore());
-            result.homScore() += std::exp(this->attachmentScores[currentNode].homScore() - max.homScore());
-            result.mixWildScore() += std::exp(this->attachmentScores[currentNode].mixWildScore() - max.mixWildScore());
-            result.mixHomScore() += std::exp(this->attachmentScores[currentNode].mixHomScore() - max.mixHomScore());
-            currentNode = source(*in_edges(currentNode, tree).first, tree);
-        }
-        return result;
-    }
-
-    template <typename TTree>
-    AttachmentScore<N> cellSumReal(TTree const & tree, unsigned currentNode)
-    {
-        AttachmentScore<N> max = this->max();
-        return cellSum(tree, currentNode, max);
-    }
-
-    template <typename TTree>
-    AttachmentScore<N> cellProbReal(TTree const & tree, unsigned currentNode)
-    {
-        AttachmentScore<N> max = this->max();
-        AttachmentScore<N> sumReal = this->sumReal(max);
-        AttachmentScore<N> cellSumReal = this->cellSumReal(tree, currentNode, max);
-        return cellSumReal.cellProbReal(sumReal);
-    }
-    */
-    void computeLogHetScoreLeaf(unsigned attachPoint, double wtScore, double hetScore)
-    {
-        this->hetScore(attachPoint) = hetScore - wtScore;    
-    }
-    
-    void computeLogHetScoreInnerNode(unsigned attachPoint, double hetScoreLeft, double hetScoreRigth)
-    {
+    void computeLogHetScoreInnerNode(unsigned attachPoint, double hetScoreLeft, double hetScoreRigth) {
         this->hetScore(attachPoint) = hetScoreLeft + hetScoreRigth;
     }
 
-    void computeLogHomScoreLeaf(unsigned attachPoint, double wtScore, double homScore)
-    {
-        this->homScore(attachPoint) = homScore - wtScore;    
+    void computeLogHomScoreLeaf(unsigned attachPoint, double wtScore, double homScore) {
+        this->homScore(attachPoint) = homScore - wtScore;
     }
-    
-    void computeLogHomScoreInnerNode(unsigned attachPoint, double homScoreLeft, double homScoreRigth)
-    {
+
+    void computeLogHomScoreInnerNode(unsigned attachPoint, double homScoreLeft, double homScoreRigth) {
         this->homScore(attachPoint) = homScoreLeft + homScoreRigth;
     }
-    
-    double computeLogMixScoreLeaf()
-    {
+
+    double computeLogLossScoreLeaf() {
         return std::nan("");
     }
 
-    void computeLogMixWildScoreLeaf(unsigned attachPoint)
-    {
-        this->mixWildScore(attachPoint) = computeLogMixScoreLeaf();
+    void computeLogLossWildScoreLeaf(unsigned attachPoint) {
+        this->lossWildScore(attachPoint) = computeLogLossScoreLeaf();
     }
-    
-    void computeLogMixHomScoreLeaf(unsigned attachPoint)
-    {
-        this->mixHomScore(attachPoint) = computeLogMixScoreLeaf();
+
+    void computeLogLossHomScoreLeaf(unsigned attachPoint) {
+        this->lossHomScore(attachPoint) = computeLogLossScoreLeaf();
     }
 
 
     template<typename TTree>
-    void computeLogMixHomScoreInnerNode(
-            TTree const & tree,
-            unsigned attachPoint)
-    {
+    void computeLogLossHomScoreInnerNode(
+            TTree const &tree,
+            unsigned attachPoint) {
         double result = std::nan("");
         auto it = out_edges(attachPoint, tree).first;
         unsigned lN = target(*it, tree); // left node i
@@ -521,11 +428,11 @@ struct AttachmentScores
         // check if left child is inner node
 
         bool lNisInnerNode = tree[lN].sample == -1;
-        if(lNisInnerNode) {
+        if (lNisInnerNode) {
 
             // check if left child of the left child is an inner node
             auto lIt = out_edges(lN, tree).first;
-            unsigned llN =  target(*lIt, tree);// left child of left node
+            unsigned llN = target(*lIt, tree);// left child of left node
             bool llNisInnerNode = tree[llN].sample == -1;
             if (llNisInnerNode) {
                 result = this->hetScore(attachPoint)
@@ -538,23 +445,22 @@ struct AttachmentScores
             bool rlNisInnerNode = tree[rlN].sample == -1;
             if (rlNisInnerNode) {
                 double rlNScore = this->hetScore(attachPoint)
-                        - this->hetScore(rlN)
-                        + this->homScore(rlN);
+                                  - this->hetScore(rlN)
+                                  + this->homScore(rlN);
 
                 result = addLog_nan_x(result, rlNScore);
             }
 
-            //check if left child has a mixture score
-            if (!std::isnan(this->mixHomScore(lN)))
-            {
+            //check if left child has a lossture score
+            if (!std::isnan(this->lossHomScore(lN))) {
                 result = addLogProb(result,
-                        this->mixHomScore(lN) + this->hetScore(rN));
+                                    this->lossHomScore(lN) + this->hetScore(rN));
             }
         }
 
         // check if left right is inner node
         bool rNisInnerNode = tree[rN].sample == -1;
-        if(rNisInnerNode) {
+        if (rNisInnerNode) {
 
             // check if left child of the left child is an inner node
             auto rIt = out_edges(rN, tree).first;
@@ -577,20 +483,20 @@ struct AttachmentScores
                 result = addLog_nan_x(result, rrNScore);
             }
 
-            //check if right child has a mixture score
-            if (!std::isnan(this->mixHomScore(rN))) {
+            //check if right child has a lossture score
+            if (!std::isnan(this->lossHomScore(rN))) {
                 result = addLogProb(result,
-                                    this->mixHomScore(rN) + this->hetScore(lN));
+                                    this->lossHomScore(rN) + this->hetScore(lN));
             }
         }
-        this->mixHomScore(attachPoint) = result;
+        this->lossHomScore(attachPoint) = result;
     }
 
     template<typename TTree>
-    void computeLogMixWildScoreInnerNode(
-            TTree const & tree,
-            unsigned attachPoint)
-    {
+    void computeLogLossWildScoreInnerNode(
+            TTree const &tree,
+            unsigned attachPoint){
+
         double result = std::nan("");
         auto it = out_edges(attachPoint, tree).first;
         unsigned lN = target(*it, tree); // left node i
@@ -599,11 +505,11 @@ struct AttachmentScores
         // check if left child is inner node
 
         bool lNisInnerNode = tree[lN].sample == -1;
-        if(lNisInnerNode) {
+        if (lNisInnerNode) {
 
             // check if left child of the left child is an inner node
             auto lIt = out_edges(lN, tree).first;
-            unsigned llN =  target(*lIt, tree);// left child of left node
+            unsigned llN = target(*lIt, tree);// left child of left node
             bool llNisInnerNode = tree[llN].sample == -1;
             if (llNisInnerNode) {
                 result = this->hetScore(attachPoint)
@@ -615,22 +521,21 @@ struct AttachmentScores
             bool rlNisInnerNode = tree[rlN].sample == -1;
             if (rlNisInnerNode) {
                 double rlNScore = this->hetScore(attachPoint)
-                        - this->hetScore(rlN);
+                                  - this->hetScore(rlN);
 
                 result = addLog_nan_x(result, rlNScore);
             }
 
-            //check if left child has a mixture score
-            if (!std::isnan(this->mixWildScore(lN)))
-            {
+            //check if left child has a lossture score
+            if (!std::isnan(this->lossWildScore(lN))) {
                 result = addLogProb(result,
-                        this->mixWildScore(lN) + this->hetScore(rN));
+                                    this->lossWildScore(lN) + this->hetScore(rN));
             }
         }
 
         // check if left right is inner node
         bool rNisInnerNode = tree[rN].sample == -1;
-        if(rNisInnerNode) {
+        if (rNisInnerNode) {
 
             // check if left child of the left child is an inner node
             auto rIt = out_edges(rN, tree).first;
@@ -651,13 +556,13 @@ struct AttachmentScores
                 result = addLog_nan_x(result, rrNScore);
             }
 
-            //check if right child has a mixture score
-            if (!std::isnan(this->mixWildScore(rN))) {
+            //check if right child has a lossture score
+            if (!std::isnan(this->lossWildScore(rN))) {
                 result = addLogProb(result,
-                        this->mixWildScore(rN) + this->hetScore(lN));
+                                    this->lossWildScore(rN) + this->hetScore(lN));
             }
         }
-        this->mixWildScore(attachPoint) = result;
+        this->lossWildScore(attachPoint) = result;
     }
 };
 

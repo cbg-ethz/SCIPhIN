@@ -331,17 +331,18 @@ public:
             sumScore.addInRealSpace(attachmentScores[v]);
             attachmentScores[v].homScore() = addLogProb(attachmentScores[v].homScore(), attachmentScores[parentNode].homScore());
             attachmentScores[v].hetScore() = addLogProb(attachmentScores[v].hetScore(), attachmentScores[parentNode].hetScore());
-            if(config.computeMixScore)
+            if(config.computeLossScore)
             {
-                if (std::isnan(attachmentScores[v].mixWildScore()))
+                if (std::isnan(attachmentScores[v].lossWildScore()))
                 {
-                    attachmentScores[v].mixWildScore() = attachmentScores[parentNode].mixWildScore();
-                    attachmentScores[v].mixHomScore() = attachmentScores[parentNode].mixHomScore();
+                    attachmentScores[v].lossWildScore() = attachmentScores[parentNode].lossWildScore();
+                    attachmentScores[v].lossAltScore() = attachmentScores[parentNode].lossAltScore();
                 }
                 else
                 {
-                    attachmentScores[v].mixWildScore() = addLogProb(attachmentScores[v].mixWildScore(), attachmentScores[parentNode].mixWildScore());
-                    attachmentScores[v].mixHomScore() = addLogProb(attachmentScores[v].mixHomScore(), attachmentScores[parentNode].mixHomScore());
+                    attachmentScores[v].lossWildScore() = addLogProb(attachmentScores[v].lossWildScore(), attachmentScores[parentNode].lossWildScore());
+                    attachmentScores[v].lossAltScore() = addLogProb(attachmentScores[v].lossAltScore(),
+                                                                    attachmentScores[parentNode].lossAltScore());
                 }
             }
         }
@@ -351,18 +352,18 @@ public:
             attachmentScores[v].homScore() = attachmentScores[parentNode].homScore();
             attachmentScores[v].hetScore() = addLogProb(attachmentScores[v].hetScore(), attachmentScores[parentNode].hetScore());
             
-            if(config.computeMixScore)
+            if(config.computeLossScore)
             {
                 unsigned grandParent = source(*in_edges(parentNode, g).first, g);
                 if (grandParent == num_vertices(config.getTree()) - 1)
                 {
-                    attachmentScores[v].mixWildScore() = -INFINITY;
-                    attachmentScores[v].mixHomScore() = -INFINITY;
+                    attachmentScores[v].lossWildScore() = -INFINITY;
+                    attachmentScores[v].lossAltScore() = -INFINITY;
                 }
                 else
                 {
-                    attachmentScores[v].mixWildScore() = attachmentScores[parentNode].mixWildScore();
-                    attachmentScores[v].mixHomScore() = attachmentScores[parentNode].mixHomScore();
+                    attachmentScores[v].lossWildScore() = attachmentScores[parentNode].lossWildScore();
+                    attachmentScores[v].lossAltScore() = attachmentScores[parentNode].lossAltScore();
                 }
             }
         }

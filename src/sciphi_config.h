@@ -69,6 +69,7 @@ struct ParamsCounter
     std::vector<double> mu;
     std::vector<double> nu;
     std::vector<double> lambda; // experimental
+    std::vector<double> parallele; // experimental
     std::vector<double> wildAlpha;
     std::vector<double> wildBeta;
     std::vector<double> mutAlpha;
@@ -81,6 +82,7 @@ struct ParamsCounter
         mu.resize(newSize, 0);
         nu.resize(newSize, 0);
         lambda.resize(newSize, 0);
+        parallele.resize(newSize, 0);
         wildAlpha.resize(newSize, 0);
         wildBeta.resize(newSize, 0);
         mutAlpha.resize(newSize, 0);
@@ -104,10 +106,10 @@ class Config{
 	typedef std::vector<bool>                                           TSampleNodes;           
 	typedef LogScores                                                   TLogScores;
     
-	typedef AttachmentScores<5>                                         TAttachmentScores;
+	typedef AttachmentScores                                             TAttachmentScores;
 	typedef std::vector<std::vector<std::tuple<unsigned, unsigned> > >  TData;
     typedef std::tuple<double, double>                                  TParamsTuple;
-    typedef std::array<TParamsTuple, 6>                                 TParams;
+    typedef std::array<TParamsTuple, 7>                                 TParams;
     typedef std::tuple<double, unsigned, unsigned >                     TLearningParamsTuple;
     typedef std::vector<TLearningParamsTuple>                           TLearningParams;
     typedef boost::dynamic_bitset<>                                     TBitSet;
@@ -119,8 +121,9 @@ class Config{
         wildMean = 2, 
         mu = 3, 
         nu = 4, 
-        lambda = 5, 
-        mutationMean = 6};
+        lambda = 5,
+        parallele = 6,
+        mutationMean = 7};
 
     // Manu small helper functions, mostly getter and setter
     void updateParamsCounter();
@@ -270,7 +273,8 @@ class Config{
     ParamsCounter                               paramsCounter;
     double                                      noiseScore;
     bool                                        learnZygocity;
-    bool                                        computeMixScore;
+    bool                                        computeLossScore;
+    bool                                        computeParallelScore;
     std::array<unsigned, 2>                     numMutPlacements;
     bool                                        estimateSeqErrorRate;
     std::array<double, 2>                       clamPrior;
@@ -282,15 +286,17 @@ class Config{
 
 
 	Config() :
-        params{{TParamsTuple{100.0,100.0}, 
-                TParamsTuple{2, 2}, 
-                TParamsTuple{0.001, 0.001},
-                TParamsTuple{0.9, 0.9},
-                TParamsTuple{0, 0},
-                TParamsTuple{0, 0}}},
+        params{{TParamsTuple{100.0,100.0},      //overdispersion background
+                TParamsTuple{2, 2},             //overdispersion mutation
+                TParamsTuple{0.001, 0.001},     //sequencing error rate
+                TParamsTuple{0.9, 0.9},         //drop out rate
+                TParamsTuple{0, 0},             //zygousity rate
+                TParamsTuple{0, 0},             //loss rate
+                TParamsTuple{0, 0}}},           //parallele rate
         sub(0),
         learningParams{{TLearningParamsTuple{5.0, 0, 0}, 
                         TLearningParamsTuple{0.1, 0, 0}, 
+                        TLearningParamsTuple{0.01, 0, 0},
                         TLearningParamsTuple{0.01, 0, 0},
                         TLearningParamsTuple{0.01, 0, 0},
                         TLearningParamsTuple{0.01, 0, 0},
@@ -323,7 +329,8 @@ class Config{
         maxSupInControlBulk(2),
         noiseScore(0),
         learnZygocity(false),
-        computeMixScore(false),
+        computeLossScore(false),
+        computeParallelScore(false),
         numMutPlacements({{0,0}}),
         estimateSeqErrorRate(true),
         clamPrior({{200,10000}}),
@@ -563,6 +570,11 @@ Config<TTreeType>::resetParameters()
         case(lambda) :
         {
             this->setParam(lambda, this->getTmpParam(lambda));
+            break;
+        }
+        case(parallele) :
+        {
+            this->setParam(parallele, this->getTmpParam(parallele));
             break;
         }
         case(mutationMean) :

@@ -118,7 +118,7 @@ int readParameters(Config<TTreeType> & config, int argc, char* argv[]){
 		("ncf", boost::program_options::value<decltype(config.normalCellFilter)>(&config.normalCellFilter), "Normal cell filter. Currently there are three options: (0) Do not use the normal cells for filtering; (1) use a simple filtering scheme excluding mutations if the probability of being mutated is higher than not being mutated for any cell independently; (2) filter mutations where the probability that at least one cell is mutated is higher than no cell is mutated. Note that in contrast to (1) the cells are not independent and cells with no alternative support need to be explained via dropout events. [1]")
 		("mnc", boost::program_options::value<decltype(config.maxNumberNormalCellMutated)>(&config.maxNumberNormalCellMutated), "Maximum number of control cells allowed to be mutated. [0]")
 		("unc", boost::program_options::value<decltype(config.useNormalCellsInTree)>(&config.useNormalCellsInTree), "Use normal cells for tree reconstruction. [false]")
-		("cms", boost::program_options::value<decltype(config.computeMixScore)>(&config.computeMixScore), "Compute the mix score = allow a mutation to be homozygous or lost in a subtree.")
+		("cms", boost::program_options::value<decltype(config.computeLossScore)>(&config.computeLossScore), "Compute the mix score = allow a mutation to be homozygous or lost in a subtree.")
 		("mspa", boost::program_options::value<double>(&config.clamPrior[0]), "The alpha parameter of the beta function used as prior on the rate of loosing a chromosome after some mutation occurred.")
 		("mspb", boost::program_options::value<double>(&config.clamPrior[1]), "The beta parameter of the beta function used as prior on the rate of loosing a chromosome after some mutation occurred.")
 		("ese", boost::program_options::value<decltype(config.estimateSeqErrorRate)>(&config.estimateSeqErrorRate), "Estimate the sequencing error rate. [1]");
@@ -238,7 +238,7 @@ int main(int argc, char* argv[])
     }
     
 	std::vector<typename TConfig::TGraph> optimalTrees;         // list of all optimal trees (as ancestor matrices)
-    std::array<std::tuple<double, double>, 6> optimalParams;    // The optimal parameters
+    std::array<std::tuple<double, double>, 7> optimalParams;    // The optimal parameters
 	std::vector<std::vector<unsigned>> sampleTrees;             // list where tree samples are stored, if sampling based on posterior distribution is needed
 
 	// Find best scoring trees by MCMC

@@ -55,24 +55,24 @@ printLogScores(Config<TTreeType> & config)
 
 // This function keeps the coeffients between 0 and 1
 // by mirroring at 0 or 1
-double adjusteCoefficient(double mixtureCoEff)
+double adjusteCoefficient(double losstureCoEff)
 {
     while(true)
     {
-        if(mixtureCoEff < 0.0)
+        if(losstureCoEff < 0.0)
         {
-            mixtureCoEff = std::abs(mixtureCoEff);
+            losstureCoEff = std::abs(losstureCoEff);
         }
-        else if (mixtureCoEff > 1.0)
+        else if (losstureCoEff > 1.0)
         {
-            mixtureCoEff = 1.0 - std::abs(1 - mixtureCoEff);
+            losstureCoEff = 1.0 - std::abs(1 - losstureCoEff);
         }
         else
         {
             break;
         }
     }
-    return mixtureCoEff;
+    return losstureCoEff;
 }
 
 // This function assures that the overdispersion of the heterozygous mutation
@@ -94,14 +94,14 @@ changeParameters(Config<TTreeType> & config)
     config.setTmpLogScores(config.getLogScores());
 
     //choose which parameter to optimize
-    if (config.computeMixScore && config.learnZygocity) 
+    if (config.computeLossScore && config.learnZygocity) 
     {
         config.setParamToOptimize((typename Config<TTreeType>::ParamType)(rand() % 6));
     }
-    else if (config.learnZygocity || config.computeMixScore)
+    else if (config.learnZygocity || config.computeLossScore)
     {
         config.setParamToOptimize((typename Config<TTreeType>::ParamType)(rand() % 5));
-        if (config.getParamToOptimize() == Config<TTreeType>::nu && config.computeMixScore)
+        if (config.getParamToOptimize() == Config<TTreeType>::nu && config.computeLossScore)
         {
             config.setParamToOptimize(Config<TTreeType>::lambda);
         }
@@ -199,7 +199,7 @@ manageBestTrees(Config<SampleTree> & config,
                      double & bestTreeLogScore,
                      double currTreeLogScore,
                      std::vector<Config<SampleTree>::TGraph> & bestTrees,
-                     std::array<std::tuple<double, double>, 6> & bestParams,
+                     std::array<std::tuple<double, double>, 7> & bestParams,
                      double /*tag*/)
 {
     if(currTreeLogScore > bestTreeLogScore)
@@ -269,7 +269,7 @@ updateMutInSampleCounts(Config<SampleTree> & config)
 // this function is in experimental phase
 inline
 void 
-updateMutInSampleCountsMix(Config<SampleTree> & config)
+updateMutInSampleCountsloss(Config<SampleTree> & config)
 {
     Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
@@ -303,13 +303,13 @@ updateMutInSampleCountsMix(Config<SampleTree> & config)
 
         double logPHet = scoreSum.hetScore() + std::log(1.0 - nu) + std::log(1.0 - lambda) - std::log(config.getNumSamples() * 2 - 1);
         double logPHom = scoreSum.homScore() + std::log(nu) - std::log(config.getNumSamples() -1);
-        double logMixWild = scoreSum.mixWildScore() + std::log(1.0 - nu) + std::log(lambda) + std::log(0.5) - std::log(config.numMutPlacements[0]);
-        double logMixHom = scoreSum.mixHomScore() + std::log(1.0 - nu) + std::log(lambda) + std::log(0.5) - std::log(config.numMutPlacements[0]);
-        double logPD = addLogProb(addLogProb(logPHet, logPHom), addLogProb(logMixWild, logMixHom));
+        double loglossWild = scoreSum.lossWildScore() + std::log(1.0 - nu) + std::log(lambda) + std::log(0.5) - std::log(config.numMutPlacements[0]);
+        double loglossHom = scoreSum.lossAltScore() + std::log(1.0 - nu) + std::log(lambda) + std::log(0.5) - std::log(config.numMutPlacements[0]);
+        double logPD = addLogProb(addLogProb(logPHet, logPHom), addLogProb(loglossWild, loglossHom));
         logPHet -= logPD;
         logPHom -= logPD;
-        logMixWild -= logPD;
-        logMixHom -= logPD;
+        loglossWild -= logPD;
+        loglossHom -= logPD;
 
         for (unsigned i = 0; i < attachmentScores.size(); ++i)
         {
@@ -317,15 +317,16 @@ updateMutInSampleCountsMix(Config<SampleTree> & config)
             {
                 // normalize probabilities
                 attachmentScores[i] -= scoreSum;
-                lostScores[i] -= scoreSum.mixWildScore();
+                lostScores[i] -= scoreSum.lossWildScore();
 
                 // if a node is attached to the root directly there is no lost-score
                 if (lostScores[i] != -INFINITY)
                 {
-                    attachmentScores[i].mixWildScore() = subLogProb(attachmentScores[i].mixWildScore(), lostScores[i]);
+                    attachmentScores[i].lossWildScore() = subLogProb(attachmentScores[i].lossWildScore(), lostScores[i]);
                     attachmentScores[i].finalScore() = addLogProb(
                             addLogProb(attachmentScores[i].hetScore() + logPHet, attachmentScores[i].homScore() + logPHom), 
-                            addLogProb(attachmentScores[i].mixWildScore() + logMixWild, attachmentScores[i].mixHomScore() + logMixHom)
+                            addLogProb(attachmentScores[i].lossWildScore() + loglossWild,
+                                       attachmentScores[i].lossAltScore() + loglossHom)
                             );
                 }
                 else
@@ -336,18 +337,20 @@ updateMutInSampleCountsMix(Config<SampleTree> & config)
                 // recompute the scores for storing them
                 attachmentScores[i].hetScore() = attachmentScores[i].hetScore() + logPHet;
                 attachmentScores[i].homScore() = attachmentScores[i].homScore() + logPHom;
-                attachmentScores[i].mixWildScore() = attachmentScores[i].mixWildScore() + logMixWild;
-                attachmentScores[i].mixHomScore() = attachmentScores[i].mixHomScore() + logMixHom;
+                attachmentScores[i].lossWildScore() = attachmentScores[i].lossWildScore() + loglossWild;
+                attachmentScores[i].lossAltScore() = attachmentScores[i].lossAltScore() + loglossHom;
 
                 config.mutInSampleCounter[config.getTree()[i].sample][attachment].hetScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].hetScore(), attachmentScores[i].hetScore());
                 config.mutInSampleCounter[config.getTree()[i].sample][attachment].homScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].homScore(), attachmentScores[i].homScore());
-                if (attachmentScores[i].mixWildScore() != -INFINITY)
+                if (attachmentScores[i].lossWildScore() != -INFINITY)
                 {
-                    config.mutInSampleCounter[config.getTree()[i].sample][attachment].mixWildScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].mixWildScore(), attachmentScores[i].mixWildScore());
+                    config.mutInSampleCounter[config.getTree()[i].sample][attachment].lossWildScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].lossWildScore(), attachmentScores[i].lossWildScore());
                 }
-                if (attachmentScores[i].mixHomScore() != -INFINITY)
+                if (attachmentScores[i].lossAltScore() != -INFINITY)
                 {
-                    config.mutInSampleCounter[config.getTree()[i].sample][attachment].mixHomScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].mixHomScore(), attachmentScores[i].mixHomScore());
+                    config.mutInSampleCounter[config.getTree()[i].sample][attachment].lossAltScore() = addLogProb(
+                            config.mutInSampleCounter[config.getTree()[i].sample][attachment].lossAltScore(),
+                                                                                                                  attachmentScores[i].lossAltScore());
                 }
                 if (attachmentScores[i].finalScore() != -INFINITY)
                 {
@@ -361,7 +364,7 @@ updateMutInSampleCountsMix(Config<SampleTree> & config)
 template <typename TTreeType>
 double
 runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees, 
-               std::array<std::tuple<double, double>, 6> & bestParams,
+               std::array<std::tuple<double, double>, 7> & bestParams,
 			   Config<TTreeType> & config,
 			   std::vector<std::vector<unsigned>> & sampleTrees)
 {
@@ -459,9 +462,9 @@ runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees,
             // sample from the posterior distribution
             if (it >= config.loops)
             {
-                if (config.computeMixScore) // experimental
+                if (config.computeLossScore) // experimental
                 {
-                    updateMutInSampleCountsMix(config);
+                    updateMutInSampleCountsloss(config);
                 }
                 else
                 {
