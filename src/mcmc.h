@@ -226,6 +226,12 @@ void
 updateMutInSampleCounts(Config<SampleTree> & config)
 {
     Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    static Config<SampleTree>::TAttachmentScores attachmentSumScores;
+    static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
+    static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentSumScores;
+    attachmentSumScores.resize(attachmentScores.size());
+    passDownAttachmentScores.resize(attachmentScores.size());
+    passDownAttachmentSumScores.resize(attachmentScores.size());
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
 
     // for all mutations
@@ -237,7 +243,13 @@ updateMutInSampleCounts(Config<SampleTree> & config)
 
         // traverse the attachment scores to the leaves
         scoreSum.setMinusInfinity();
-        PassScoreToChildrenBFSVisitor visBFS(config, attachmentScores, scoreSum, attachment);
+        PassScoreToChildrenBFSVisitor visBFS(config,
+                attachmentScores,
+                attachmentSumScores,
+                passDownAttachmentScores,
+                passDownAttachmentSumScores,
+                scoreSum,
+                attachment);
         breadth_first_search(config.getTree(), num_vertices(config.getTree()) - 1, visitor(visBFS));
 
         // compute the probability of the tree to be in hetero- or homozygous state
@@ -266,6 +278,7 @@ updateMutInSampleCounts(Config<SampleTree> & config)
 }
 
 
+/*
 // this function is in experimental phase
 inline
 void 
@@ -360,6 +373,7 @@ updateMutInSampleCountsloss(Config<SampleTree> & config)
         }
     }
 }
+ */
 
 template <typename TTreeType>
 double
@@ -462,14 +476,7 @@ runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees,
             // sample from the posterior distribution
             if (it >= config.loops)
             {
-                if (config.computeLossScore) // experimental
-                {
-                    updateMutInSampleCountsloss(config);
-                }
-                else
-                {
-                    updateMutInSampleCounts(config);
-                }
+                updateMutInSampleCounts(config);
                 config.updateParamsCounter();
                 if (config.sampling != 0 && it%config.sampling == 0)
                 {

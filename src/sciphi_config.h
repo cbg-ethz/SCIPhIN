@@ -38,6 +38,7 @@
 #include <unordered_map>
 
 #include "attachmentScores.h"
+#include "passDownAttachmentScores.h"
 #include "noise_counts.h"
 #include "logScores.h"
 
@@ -106,7 +107,8 @@ class Config{
 	typedef std::vector<bool>                                           TSampleNodes;           
 	typedef LogScores                                                   TLogScores;
     
-	typedef AttachmentScores                                             TAttachmentScores;
+	typedef AttachmentScores                                            TAttachmentScores;
+    typedef PassDownAttachmentScores                                    TPassDownAttachmentScores;
 	typedef std::vector<std::vector<std::tuple<unsigned, unsigned> > >  TData;
     typedef std::tuple<double, double>                                  TParamsTuple;
     typedef std::array<TParamsTuple, 7>                                 TParams;

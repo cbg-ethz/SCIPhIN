@@ -115,5 +115,5 @@ std::ostream& operator<<(std::ostream & os, const NoiseCounts & noiseCounts)
     for (unsigned i = 0; i < noiseCounts.covMinusSup.size(); ++i)
         os << "\t" << noiseCounts.covMinusSup[i].first << ":" << noiseCounts.covMinusSup[i].second;
     return os;  
-}  
+};
 #endif

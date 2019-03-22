@@ -41,10 +41,12 @@
 #include "scoreTree.h"
 #include "output.h"
 
-using namespace std;
+//using namespace std;
 
 // This function returns the node ID of the sibling of node "vertex"
-unsigned getSibling(typename Config<SampleTree>::TGraph const & g, unsigned vertex)
+inline
+unsigned
+getSibling(typename Config<SampleTree>::TGraph const & g, unsigned vertex)
 {
     unsigned parentNode = source(*in_edges(vertex, g).first, g);
     if (target(*out_edges(parentNode,  g).first, g) == vertex)

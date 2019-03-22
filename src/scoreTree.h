@@ -92,8 +92,8 @@ public:
             attachmentScores.computeLogHomScoreLeaf(v, this->config.getLogScores().wtScore(g[v].sample, gene), this->config.getLogScores().homScore(g[v].sample, gene));
             if (config.computeLossScore) // experimental
             {
+                attachmentScores.computeLogLossAltScoreLeaf(v);
                 attachmentScores.computeLogLossWildScoreLeaf(v);
-                attachmentScores.computeLogLossHomScoreLeaf(v);
             }
             // add hetero score to overall tree score
             scoreSum.hetScore() = addLogProb(scoreSum.hetScore(), attachmentScores[v].hetScore());
@@ -114,13 +114,14 @@ public:
             unsigned rightNodeId = target(*(it + 1), g);
             bool innerNodeLeft = g[leftNodeId].sample == -1;
             bool innerNodeRight = g[rightNodeId].sample == -1;
-            attachmentScores.computeLogLossWildScoreInnerNode(g, v);
-            attachmentScores.computeLogLossHomScoreInnerNode(g, v);
+            attachmentScores.computeLogLossScoreInnerNode(g, v);
+            attachmentScores.computeLogLcaScoreInnerNode(g,v);
 
             if(innerNodeLeft || innerNodeRight)
             {
-                scoreSum.lossWildScore() = addLog_nan_x(scoreSum.lossWildScore(), attachmentScores[v].lossWildScore());
-                scoreSum.lossAltScore() = addLog_nan_x(scoreSum.lossAltScore(), attachmentScores[v].lossAltScore());
+                scoreSum.lossAltScore() = addLogProb(scoreSum.lossAltScore(), attachmentScores[v].lossAltScore());
+                scoreSum.lossWildScore() = addLogProb
+                        (scoreSum.lossWildScore(), attachmentScores[v].lossWildScore());
             }
         }
         return ;

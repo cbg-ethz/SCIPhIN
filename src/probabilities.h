@@ -98,6 +98,16 @@ inline
 double
 addLogProb(double x, double y)
 {
+    if (x == -INFINITY)
+    {
+        return y;
+    }
+
+    if (y == -INFINITY)
+    {
+        return x;
+    }
+
     double maxScore;
     double minScore;
     if (x > y)
@@ -118,6 +128,21 @@ inline
 double
 subLogProb(double x, double y)
 {
+    if (y == -INFINITY) // it is important to first check this case
+    {                   // because it avoids - -INFINITY in the next case
+        return x;
+    }
+
+    if (x == -INFINITY)
+    {
+        return -y;
+    }
+
+    if (std::abs(x-y) <= 100 * std::numeric_limits<double>::epsilon())
+    {
+        return -INFINITY;
+    }
+
     double maxScore;
     double minScore;
     if (x > y)
@@ -142,9 +167,20 @@ addLogProbWeight(double x, double y, double nu) // = (1.0 - nu) * x + nu * y
     {
         return x;
     }
-    else if (nu == 1.0)
+
+    if (nu == 1.0)
     {
         return y;
+    }
+
+    if (x == -INFINITY)
+    {
+        return y;
+    }
+
+    if (y == -INFINITY)
+    {
+        return x;
     }
 
     if (x > y)
@@ -154,6 +190,7 @@ addLogProbWeight(double x, double y, double nu) // = (1.0 - nu) * x + nu * y
     return std::log(nu + (1.0 - nu) * std::exp(x-y)) + y;
 }
 
+/*
 inline
 double
 addLog_nan_x(double nan, double x)
@@ -164,6 +201,7 @@ addLog_nan_x(double nan, double x)
     }
     return addLogProb(nan, x);
 }
+ */
 
 template <typename TTreeType>
 double
@@ -281,7 +319,7 @@ computeNoiseScore(Config<SampleTree> & config)
     }
     for (unsigned i = 0; i < config.noiseCounts.covMinusSup.size(); ++i)
     {
-        config.noiseScore += config.noiseCounts.covMinusSup[i].second * std::lgamma(config.noiseCounts.covMinusSup[i].first + beta); 
+        config.noiseScore += config.noiseCounts.covMinusSup[i].second * std::lgamma(config.noiseCounts.covMinusSup[i].first + beta);
     }   
     for (unsigned i = 0; i < config.noiseCounts.cov.size(); ++i)
     {
@@ -294,187 +332,122 @@ class PassScoreToChildrenBFSVisitor : public boost::default_bfs_visitor
 {
     Config<SampleTree> & config;
     Config<SampleTree>::TAttachmentScores & attachmentScores;
+    Config<SampleTree>::TAttachmentScores & attachmentSumScores;
+    Config<SampleTree>::TPassDownAttachmentScores & passDownAttachmentScores;
+    Config<SampleTree>::TPassDownAttachmentScores & passDownAttachmentSumScores;
     Config<SampleTree>::TAttachmentScores::TAttachmentScore & sumScore;
 
 public:
 
     PassScoreToChildrenBFSVisitor(Config<SampleTree> & config_, 
-            Config<SampleTree>::TAttachmentScores & attachmentScores_, 
+            Config<SampleTree>::TAttachmentScores & attachmentScores_,
+            Config<SampleTree>::TAttachmentScores & attachmentSumScores_,
+            Config<SampleTree>::TPassDownAttachmentScores & passDownAttachmentScores_,
+            Config<SampleTree>::TPassDownAttachmentScores & passDownAttachmentSumScores_,
             Config<SampleTree>::TAttachmentScores::TAttachmentScore & sumScore_, 
             unsigned attachment_) : 
         config(config_),
         attachmentScores(attachmentScores_),
+        attachmentSumScores(attachmentSumScores_),
+        passDownAttachmentScores(passDownAttachmentScores_),
+        passDownAttachmentSumScores(passDownAttachmentSumScores_),
         sumScore(sumScore_)
     {}
 
     template <typename TVertex >
-    void discover_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) const
+    void discover_vertex(TVertex v, typename Config<SampleTree>::TGraph const & g) const
     {
         (void)g;
-        if (v == num_vertices(config.getTree()) - 1)
+        if (v == num_vertices(g) - 1)
         {
             return;
         }
 
-        unsigned parentNode = source(*in_edges(v, g).first, g);
-        if (parentNode == num_vertices(config.getTree()) - 1)
+        unsigned pN = source(*in_edges(v, g).first, g); // parent Node
+
+        if (pN == num_vertices(config.getTree()) - 1)
         {
             sumScore.addInRealSpace(attachmentScores[v]);
+            attachmentSumScores[v] = attachmentScores[v];
             return;
         }
 
         if (g[v].sample == -1)
         {
+            auto it = out_edges(v, g).first;
+            unsigned lN = target(*it, g);                   // left node id
+            unsigned rN = target(*(it + 1), g);             // right node id
+            unsigned sN = getSibling(g,v);                  // sibling node id
+
+            passDownAttachmentScores.computeLogLossInCurrentInnerNode(g, attachmentScores, v);
+
             sumScore.addInRealSpace(attachmentScores[v]);
-            attachmentScores[v].homScore() = addLogProb(attachmentScores[v].homScore(), attachmentScores[parentNode].homScore());
-            attachmentScores[v].hetScore() = addLogProb(attachmentScores[v].hetScore(), attachmentScores[parentNode].hetScore());
-            if(config.computeLossScore)
+
+            attachmentSumScores[v].hetScore() =
+                    addLogProb(attachmentScores[v].hetScore(),
+                               attachmentSumScores[pN].hetScore());
+            attachmentSumScores[v].homScore() =
+                    addLogProb(attachmentScores[v].homScore(),
+                               attachmentSumScores[pN].homScore());
+            attachmentSumScores[v].lossAltRScore() =
+                    addLogProb(attachmentScores[v].lossAltRScore(),
+                               attachmentSumScores[pN].lossAltRScore());
+            passDownAttachmentSumScores[v].lossAltInCurrentNodeRScore() =
+                    addLogProb(passDownAttachmentScores[v].lossAltInCurrentNodeRScore(),
+                               passDownAttachmentSumScores[pN].lossAltInCurrentNodeRScore());
+            attachmentSumScores[v].lossWildScore() =
+                    addLogProb(attachmentScores[v].lossWildScore(),
+                               attachmentSumScores[pN].lossWildScore());
+
+            unsigned ppN = source(*in_edges(pN, g).first, g);
+            passDownAttachmentSumScores[v].sibNodeScore() = attachmentScores[getSibling(g, v)].hetSumScore();
+            if (ppN != num_vertices(config.getTree()) - 1)
             {
-                if (std::isnan(attachmentScores[v].lossWildScore()))
+                passDownAttachmentSumScores[v].sibNodeScore() = addLogProb(
+                        passDownAttachmentSumScores[v].sibNodeScore(),
+                        passDownAttachmentSumScores[pN].sibNodeScore());
+            }
+            passDownAttachmentScores[v].paralleleScore() =
+                    attachmentScores[v].hetScore() + passDownAttachmentSumScores[v].sibNodeScore();
+            if(g[sN].sample == -1)
+            {
+                passDownAttachmentScores[v].paralleleScore() = subLogProb(
+                        passDownAttachmentScores[v].paralleleScore(), attachmentScores[v].hetScore() +
+                        addLogProb(attachmentScores[sN].hetScore(), attachmentScores[sN].childHetSumScore()));
+            }
+            if (ppN != num_vertices(config.getTree()) - 1)
+            {
+                if(g[getSibling(g, (TVertex)pN)].sample == -1)
                 {
-                    attachmentScores[v].lossWildScore() = attachmentScores[parentNode].lossWildScore();
-                    attachmentScores[v].lossAltScore() = attachmentScores[parentNode].lossAltScore();
-                }
-                else
-                {
-                    attachmentScores[v].lossWildScore() = addLogProb(attachmentScores[v].lossWildScore(), attachmentScores[parentNode].lossWildScore());
-                    attachmentScores[v].lossAltScore() = addLogProb(attachmentScores[v].lossAltScore(),
-                                                                    attachmentScores[parentNode].lossAltScore());
+                    passDownAttachmentScores[v].paralleleScore() = subLogProb(
+                            passDownAttachmentScores[v].paralleleScore(),
+                            attachmentScores[v].hetScore() + attachmentScores[getSibling(g, (TVertex)pN)].hetScore());
                 }
             }
+            passDownAttachmentSumScores[v].paralleleScore() = addLogProb(
+                    passDownAttachmentScores[v].paralleleScore(),
+                    passDownAttachmentSumScores[pN].paralleleScore());
         }
         else
         {
             sumScore.hetScore() = addLogProb(sumScore.hetScore(), attachmentScores[v].hetScore());
-            attachmentScores[v].homScore() = attachmentScores[parentNode].homScore();
-            attachmentScores[v].hetScore() = addLogProb(attachmentScores[v].hetScore(), attachmentScores[parentNode].hetScore());
-            
-            if(config.computeLossScore)
-            {
-                unsigned grandParent = source(*in_edges(parentNode, g).first, g);
-                if (grandParent == num_vertices(config.getTree()) - 1)
-                {
-                    attachmentScores[v].lossWildScore() = -INFINITY;
-                    attachmentScores[v].lossAltScore() = -INFINITY;
-                }
-                else
-                {
-                    attachmentScores[v].lossWildScore() = attachmentScores[parentNode].lossWildScore();
-                    attachmentScores[v].lossAltScore() = attachmentScores[parentNode].lossAltScore();
-                }
-            }
+
+            attachmentSumScores[v].hetScore() =
+                    addLogProb(attachmentScores[v].hetScore(),
+                               attachmentSumScores[pN].hetScore());
+            attachmentSumScores[v].homScore() = attachmentSumScores[pN].homScore();
+            attachmentSumScores[v].lossAltRScore() = subLogProb(
+                    attachmentSumScores[pN].lossAltRScore(),
+                    passDownAttachmentSumScores[pN].lossAltInCurrentNodeRScore());
+            attachmentSumScores[v].lossWildScore() = attachmentSumScores[pN].lossWildScore();
+            passDownAttachmentSumScores[v].paralleleScore() = passDownAttachmentSumScores[pN].paralleleScore();
         }
-    }
-};
-
-
-// experimental phase
-class ComputeLostScoreDFSVisitor : public boost::default_dfs_visitor
-{
-    Config<SampleTree> & config;
-    Config<SampleTree>::TAttachmentScores const & attachmentScores;
-    std::vector<double> & lostScores;
-    double & leafScore;
-
-public:
-
-    ComputeLostScoreDFSVisitor(Config<SampleTree> & config_, 
-            Config<SampleTree>::TAttachmentScores const & attachmentScores_,
-            std::vector<double> & lostScores_,
-            double & leafScore_,
-            unsigned attachment_) : 
-        config(config_),
-        attachmentScores(attachmentScores_),
-        lostScores(lostScores_),
-        leafScore(leafScore_)
-    {}
-
-    template <typename TVertex >
-    void discover_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) //const
-    {
-        // this is the artificial node which needs to be excludede
-        if (v == num_vertices(config.getTree()) - 1)
-        {
-            return;
-        }
-
-        unsigned parentNode = source(*in_edges(v, g).first, g);
-
-        // this is the root node which needs to be excludede
-        if (parentNode == num_vertices(config.getTree()) - 1)
-        {
-            return;
-        }
-        
-        if (g[v].sample == -1) // inner node
-        {
-            // if the parent node is the root then there should be no summation of the nodes
-            if (source(*in_edges(parentNode, g).first, g) == num_vertices(config.getTree()) - 1)
-            {
-                lostScores[v] = attachmentScores[parentNode].hetScore() - attachmentScores[v].hetScore();
-                leafScore = addLogProb(leafScore, lostScores[v]);
-            }
-            else
-            {
-                lostScores[v] = attachmentScores[parentNode].hetScore() - attachmentScores[v].hetScore();
-                lostScores[v] = addLogProb(lostScores[v], lostScores[parentNode] + attachmentScores[getSibling(g, v)].hetScore());
-                leafScore = addLogProb(leafScore, lostScores[v]);
-            }
-        }
-        else // leaf
-        {
-            if (source(*in_edges(parentNode, g).first, g) == num_vertices(config.getTree()) - 1)
-            {
-                lostScores[v] = -INFINITY;
-            }
-            else
-            {
-                lostScores[v] = leafScore;
-            }
-        }
-    }
-
-    template <typename TVertex >
-    void finish_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) 
-    {
-        if (v == num_vertices(config.getTree()) - 1)
-        {
-            return;
-        }
-
-        unsigned parentNode = source(*in_edges(v, g).first, g);
-        if (parentNode == num_vertices(config.getTree()) - 1)
-        {
-            return;
-        }
-        if (g[v].sample == -1) // inner node
-        {
-            // if the parent node is the root then there should be no summation of the nodes
-            if (source(*in_edges(parentNode, g).first, g) == num_vertices(config.getTree()) - 1)
-            {
-                leafScore = subLogProb(leafScore, lostScores[v]);
-            }
-            else
-            {
-                leafScore = subLogProb(leafScore, lostScores[v]);
-            }
-        }
-
     }
 };
 
 /*
  * This function is used to optimize mean and overdispersion
- * for a given loci
+ * for a given locus
  */
 struct OptimizeBetaBinMeanOverDis
 {
@@ -595,7 +568,4 @@ struct OptimizeBetaBinOverDisDerivates
         return res;
     }
 };
-
-
-
 #endif

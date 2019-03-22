@@ -33,6 +33,8 @@ double addLogProbWeight(double x, double y, double nu);
 
 double addLogProb(double x, double y);
 
+double subLogProb(double x, double y);
+
 double addLog_nan_x(double result, double rlNScore);
 
 /*
@@ -41,26 +43,36 @@ double addLog_nan_x(double result, double rlNScore);
  */
 struct AttachmentScore {
 
-    typedef std::array<double, 9> TAttachmentScore;
+    typedef std::array<double, 16> TAttachmentScore;
 
     TAttachmentScore attachmentScore;
 
 
     enum Type {
-        E_hetScore = 0,         // all cells below the node are heterozygous
-        E_homScore = 1,         // all cells below the node are homozygous
-        E_hetSumScore = 2,      // the sum of all hetScores below the node
-        E_lossAltScore = 3,     // a mutation is gained in the node and the mutated/altered allele is lost in any
-        // node below
-                E_lossAltScoreR = 4,    // a mutation is gained in the node and the mutated/altered allele is lost in any
-        // node below except for the child nodes
-                E_lossWildScore = 5,     // a mutation is gained in the node and the reference allele is lost in any node below
-        // except for the child nodes
-                E_lcaScore = 6,         // probability that the node is the lowest common ancestor of two independent mutation
-        // events
-                E_lcaScoreR = 7,        // probability that the node is the lowest common ancestor of two independent mutation
-        // events with additional restrictions
-                E_finalScore = 8        // final combined score
+        E_hetScore = 0,                     // all cells below the node are heterozygous
+        E_homScore = 1,                     // all cells below the node are homozygous
+        E_hetSumScore = 2,                  // the sum of all hetScores below the node
+        E_lossAltScore = 3,                 // a mutation is gained in the node and the mutated/altered allele is lost in any
+                                            // node below
+        E_lossAltRScore = 4,                // a mutation is gained in the node and the mutated/altered allele is lost in any
+                                            // node below except for the child nodes
+        E_lossWildScore = 5,                // a mutation is gained in the node and the reference allele is lost in any node below
+                                            // except for the child nodes
+        E_lcaScore = 6,                     // probability that the node is the lowest common ancestor of two independent mutation
+                                            // events
+        E_childHetSumScore = 7,             // the probability that one of the child nodes is mutated
+        E_lcaRScore = 8,                   // probability that the node is the lowest common ancestor of two independent mutation
+                                            // events with additional restrictions
+        E_grantChildHetSumScore = 9,       // probability of a mutation below the current node, but not in itself
+                                            // or the child nodes
+        E_numAltPoss = 10,                  // number of different possibilities to loose the current mutation
+        E_numAltRPoss = 11,                 // number of different possibilities to loose the current mutation (but not directly in
+                                            // the child nodes
+        E_numInnerNodes = 12,               // number of inner nodes below the current one
+        E_numInnerChildNodes = 13,          // number of child nodes that are inner nodes (0, 1, or 2)
+        E_numLcaRPoss = 14,                 // number of possibilities for a parallel mutation below the current node
+        E_finalScore = 15                   // final combined score
+
     };
 
     // init everything to -INFINITY because we are doing the computation in 
@@ -74,6 +86,13 @@ struct AttachmentScore {
                                      -INFINITY,
                                      -INFINITY,
                                      -INFINITY,
+                                     -INFINITY,
+                                     -INFINITY,
+                                     0,
+                                     0,
+                                     0,
+                                     0,
+                                     0,
                                      -INFINITY}}) {};
 
     // transform attachment scores into log
@@ -85,7 +104,7 @@ struct AttachmentScore {
 
     // exponentiate attachment scores
     void exp() {
-        for (unsigned i = 0; i < 7; ++i) {
+        for (unsigned i = 0; i < this->attachmentScore.size(); ++i) {
             this->attachmentScore[i] = std::exp(this->attachmentScore[i]);
         }
     }
@@ -98,11 +117,11 @@ struct AttachmentScore {
         return this->attachmentScore[E_hetScore];
     }
 
-    double &sumHetScore() {
+    double &hetSumScore() {
         return this->attachmentScore[E_hetSumScore];
     }
 
-    double const &sumHetScore() const {
+    double const &hetSumScore() const {
         return this->attachmentScore[E_hetSumScore];
     }
 
@@ -130,12 +149,84 @@ struct AttachmentScore {
         return this->attachmentScore[E_lossAltScore];
     }
 
+    double &lossAltRScore() {
+        return this->attachmentScore[E_lossAltRScore];
+    }
+
+    double const &lossAltRScore() const {
+        return this->attachmentScore[E_lossAltRScore];
+    }
+
     double &lcaScore() {
         return this->attachmentScore[E_lcaScore];
     }
 
-    double const &paralleleScore() const {
+    double const &lcaScore() const {
         return this->attachmentScore[E_lcaScore];
+    }
+
+    double const &lcaRScore() const {
+        return this->attachmentScore[E_lcaRScore];
+    }
+
+    double &lcaRScore() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->lcaRScore());
+    }
+
+    double const &grantChildHetSumScore() const {
+        return this->attachmentScore[E_grantChildHetSumScore];
+    }
+
+    double &grantChildHetSumScore() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->grantChildHetSumScore());
+    }
+
+    double &childHetSumScore() {
+        return this->attachmentScore[E_childHetSumScore];
+    }
+
+    double const &childHetSumScore() const {
+        return this->attachmentScore[E_childHetSumScore];
+    }
+
+    double const &numAltPoss() const {
+        return this->attachmentScore[E_numAltPoss];
+    }
+
+    double &numAltPoss() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numAltPoss());
+    }
+
+    double const &numAltRPoss() const {
+        return this->attachmentScore[E_numAltRPoss];
+    }
+
+    double &numAltRPoss() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numAltRPoss());
+    }
+
+    double const &numInnerNodes() const {
+        return this->attachmentScore[E_numInnerNodes];
+    }
+
+    double &numInnerNodes() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numInnerNodes());
+    }
+
+    double const &numInnerChildNodes() const {
+        return this->attachmentScore[E_numInnerChildNodes];
+    }
+
+    double &numInnerChildNodes() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numInnerChildNodes());
+    }
+
+    double const &numLcaRPoss() const {
+        return this->attachmentScore[E_numLcaRPoss];
+    }
+
+    double &numLcaRPoss() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numLcaRPoss());
     }
 
     double &finalScore() {
@@ -254,29 +345,13 @@ struct AttachmentScore {
                                           lambda / numMutPlacements * std::exp(loss));
         }
 
-
-
-
         return;
     }
 
-    AttachmentScore cellProbReal(AttachmentScore const &sumReal) {
-        AttachmentScore result = {};
-        result.hetScore() = this->hetScore() / sumReal.hetScore();
-        result.homScore() = this->homScore() / sumReal.homScore();
-        result.lossWildScore() = this->lossWildScore() / sumReal.lossWildScore();
-        result.lossAltScore() = this->lossAltScore() / sumReal.lossAltScore();
-        result.finalScore() = this->finalScore() / sumReal.finalScore();
-
-        return result;
-    }
-
     void setMinusInfinity() {
-        this->hetScore() = -INFINITY;
-        this->homScore() = -INFINITY;
-        this->lossWildScore() = -INFINITY;
-        this->lossAltScore() = -INFINITY;
-        this->finalScore() = -INFINITY;
+        for (unsigned i = 0; i < this->attachmentScore.size(); ++i) {
+            this->attachmentScore[i] = -INFINITY;
+        }
     }
 };
 
@@ -291,12 +366,17 @@ std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
 }
 
 std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
-    os << obj.hetScore() << "|" <<
-       obj.homScore() << "|" <<
-       obj.lossWildScore() << "|" <<
-                                  obj.lossAltScore() << "|" <<
-       obj.paralleleScore() << "|" <<
-       obj.finalScore();
+    os << "hetScore:         " << obj.hetScore() << "\n";
+    os << "homScore:         " << obj.homScore() << "\n";
+    os << "hetSumScore:      " << obj.hetSumScore() << "\n";
+    os << "lossAltScore:     " << obj.lossAltScore() << "\n";
+    os << "lossAltRScore:    " << obj.lossAltRScore() << "\n";
+    os << "lossWildScore:    " << obj.lossWildScore() << "\n";
+    os << "lcaScore:         " << obj.lcaScore() << "\n";
+    os << "childHetSumScore: " << obj.childHetSumScore() << "\n";
+    os << "lcaRScore:        " << obj.lcaRScore() << "\n";
+    os << "numAltRPoss:      " << obj.numAltRPoss() << "\n";
+    os << "finalScore:       " << obj.finalScore() << "\n";
     return os;
 }
 
@@ -325,12 +405,28 @@ struct AttachmentScores {
         return this->attachmentScores[pos];
     }
 
+    unsigned size() {
+        return this->attachmentScores.size();
+    }
+
+    void resize(unsigned newSize) {
+        this->attachmentScores.resize(newSize);
+    }
+
     double &hetScore(unsigned attachPoint) {
         return this->attachmentScores[attachPoint].hetScore();
     }
 
     double const &hetScore(unsigned attachPoint) const {
         return this->attachmentScores[attachPoint].hetScore();
+    }
+
+    double &hetSumScore(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].hetSumScore();
+    }
+
+    double const &hetSumScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].hetSumScore();
     }
 
     double &homScore(unsigned attachPoint) {
@@ -349,43 +445,93 @@ struct AttachmentScores {
         return this->attachmentScores[attachPoint].lossWildScore();
     }
 
-    double &lossHomScore(unsigned attachPoint) {
+    double &lossAltScore(unsigned attachPoint) {
         return this->attachmentScores[attachPoint].lossAltScore();
     }
 
-    double const &lossHomScore(unsigned attachPoint) const {
+    double const &lossAltScore(unsigned attachPoint) const {
         return this->attachmentScores[attachPoint].lossAltScore();
     }
 
-    unsigned size() {
-        return this->attachmentScores.size();
+    double &lossAltRScore(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].lossAltRScore();
     }
 
-    void resize(unsigned newSize) {
-        this->attachmentScores.resize(newSize);
+    double const &lossAltRScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].lossAltRScore();
     }
 
-    /*
-    AttachmentScore max() {
-        AttachmentScore result = this->attachmentScores[0];
-
-        for (unsigned i = 1; i < this->size(); ++i) {
-            if (result.hetScore() < this->attachmentScores[i].hetScore()) {
-                result.hetScore() = this->attachmentScores[i].hetScore();
-            }
-            if (result.homScore() < this->attachmentScores[i].homScore()) {
-                result.homScore() = this->attachmentScores[i].homScore();
-            }
-            if (result.lossWildScore() < this->attachmentScores[i].lossWildScore()) {
-                result.lossWildScore() = this->attachmentScores[i].lossWildScore();
-            }
-            if (result.lossAltScore() < this->attachmentScores[i].lossAltScore()) {
-                result.lossAltScore() = this->attachmentScores[i].lossAltScore();
-            }
-        }
-        return result;
+    double &lcaScore(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].lcaScore();
     }
-     */
+
+    double const &lcaScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].lcaScore();
+    }
+
+    double &lcaRScore(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].lcaRScore();
+    }
+
+    double const &lcaRScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].lcaRScore();
+    }
+
+    double &grantChildHetSumScore(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].grantChildHetSumScore();
+    }
+
+    double const &grantChildHetSumScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].grantChildHetSumScore();
+    }
+
+    double &numAltPoss(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].numAltPoss();
+    }
+
+    double const &numAltPoss(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].numAltPoss();
+    }
+
+    double &numAltRPoss(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].numAltRPoss();
+    }
+
+    double const &numAltRPoss(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].numAltRPoss();
+    }
+
+    double &numInnerNodes(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].numInnerNodes();
+    }
+
+    double const &numInnerNodes(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].numInnerNodes();
+    }
+
+    double &numInnerChildNodes(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].numInnerChildNodes();
+    }
+
+    double const &numInnerChildNodes(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].numInnerChildNodes();
+    }
+
+    double &numLcaRPoss(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].numLcaRPoss();
+    }
+
+    double const &numLcaRPoss(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].numLcaRPoss();
+    }
+
+    double &childHetSumScore(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].childHetSumScore();
+    }
+
+    double const &childHetSumScore(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].childHetSumScore();
+    }
 
     void computeLogHetScoreLeaf(unsigned attachPoint, double wtScore, double hetScore) {
         this->hetScore(attachPoint) = hetScore - wtScore;
@@ -404,166 +550,133 @@ struct AttachmentScores {
     }
 
     double computeLogLossScoreLeaf() {
-        return std::nan("");
+        return -INFINITY;
     }
 
     void computeLogLossWildScoreLeaf(unsigned attachPoint) {
         this->lossWildScore(attachPoint) = computeLogLossScoreLeaf();
     }
 
-    void computeLogLossHomScoreLeaf(unsigned attachPoint) {
-        this->lossHomScore(attachPoint) = computeLogLossScoreLeaf();
-    }
-
-
-    template<typename TTree>
-    void computeLogLossHomScoreInnerNode(
-            TTree const &tree,
-            unsigned attachPoint) {
-        double result = std::nan("");
-        auto it = out_edges(attachPoint, tree).first;
-        unsigned lN = target(*it, tree); // left node i
-        unsigned rN = target(*(it + 1), tree); // right node id
-
-        // check if left child is inner node
-
-        bool lNisInnerNode = tree[lN].sample == -1;
-        if (lNisInnerNode) {
-
-            // check if left child of the left child is an inner node
-            auto lIt = out_edges(lN, tree).first;
-            unsigned llN = target(*lIt, tree);// left child of left node
-            bool llNisInnerNode = tree[llN].sample == -1;
-            if (llNisInnerNode) {
-                result = this->hetScore(attachPoint)
-                         - this->hetScore(llN)
-                         + this->homScore(llN);
-            }
-
-            // check if right child of the left child is an inner node
-            unsigned rlN = target(*(lIt + 1), tree); // right child of left node
-            bool rlNisInnerNode = tree[rlN].sample == -1;
-            if (rlNisInnerNode) {
-                double rlNScore = this->hetScore(attachPoint)
-                                  - this->hetScore(rlN)
-                                  + this->homScore(rlN);
-
-                result = addLog_nan_x(result, rlNScore);
-            }
-
-            //check if left child has a lossture score
-            if (!std::isnan(this->lossHomScore(lN))) {
-                result = addLogProb(result,
-                                    this->lossHomScore(lN) + this->hetScore(rN));
-            }
-        }
-
-        // check if left right is inner node
-        bool rNisInnerNode = tree[rN].sample == -1;
-        if (rNisInnerNode) {
-
-            // check if left child of the left child is an inner node
-            auto rIt = out_edges(rN, tree).first;
-            unsigned lrN = target(*rIt, tree);// left child of left node
-            bool lrNisInnerNode = tree[lrN].sample == -1;
-            if (lrNisInnerNode) {
-                double lrNScore = this->hetScore(attachPoint)
-                                  - this->hetScore(lrN)
-                                  + this->homScore(lrN);
-                result = addLog_nan_x(result, lrNScore);
-            }
-
-            // check if right child of the left child is an inner node
-            unsigned rrN = target(*(rIt + 1), tree); // right child of left node
-            bool rrNisInnerNode = tree[rrN].sample == -1;
-            if (rrNisInnerNode) {
-                double rrNScore = this->hetScore(attachPoint)
-                                  - this->hetScore(rrN)
-                                  + this->homScore(rrN);
-                result = addLog_nan_x(result, rrNScore);
-            }
-
-            //check if right child has a lossture score
-            if (!std::isnan(this->lossHomScore(rN))) {
-                result = addLogProb(result,
-                                    this->lossHomScore(rN) + this->hetScore(lN));
-            }
-        }
-        this->lossHomScore(attachPoint) = result;
+    void computeLogLossAltScoreLeaf(unsigned attachPoint) {
+        this->lossAltScore(attachPoint) = computeLogLossScoreLeaf();
     }
 
     template<typename TTree>
-    void computeLogLossWildScoreInnerNode(
+    void computeLogLossScoreInnerNode(
             TTree const &tree,
             unsigned attachPoint){
 
-        double result = std::nan("");
         auto it = out_edges(attachPoint, tree).first;
-        unsigned lN = target(*it, tree); // left node i
-        unsigned rN = target(*(it + 1), tree); // right node id
+        unsigned lN = target(*it, tree);                // left node id
+        unsigned rN = target(*(it + 1), tree);          // right node id
 
-        // check if left child is inner node
+        double leftContAltLos = -INFINITY;
+        // loss wild type chromosome
+        double leftContWildLos = -INFINITY;
+        // loss alternative chromosome
+        double rightContAltLos = -INFINITY;
+        // loss wild type chromosome
+        double rightContWildLos = -INFINITY;
 
-        bool lNisInnerNode = tree[lN].sample == -1;
-        if (lNisInnerNode) {
+        bool computeValues = false;
 
-            // check if left child of the left child is an inner node
-            auto lIt = out_edges(lN, tree).first;
-            unsigned llN = target(*lIt, tree);// left child of left node
-            bool llNisInnerNode = tree[llN].sample == -1;
-            if (llNisInnerNode) {
-                result = this->hetScore(attachPoint)
-                         - this->hetScore(llN);
-            }
+        // check if child nodes are inner node
+        if (tree[lN].sample == -1)
+        {
+            // loss alternative chromosome
+            leftContAltLos = addLogProb(this->lossAltScore(lN), 0) + this->hetScore(rN);
+            // loss wild type chromosome
+            leftContWildLos = addLogProb(this->lossWildScore(lN), this->homScore(lN)) + this->hetScore(rN);
 
-            // check if right child of the left child is an inner node
-            unsigned rlN = target(*(lIt + 1), tree); // right child of left node
-            bool rlNisInnerNode = tree[rlN].sample == -1;
-            if (rlNisInnerNode) {
-                double rlNScore = this->hetScore(attachPoint)
-                                  - this->hetScore(rlN);
+            this->numAltPoss(attachPoint) += this->numAltPoss(lN) + 1;
 
-                result = addLog_nan_x(result, rlNScore);
-            }
+            this->numAltRPoss(attachPoint) += this->numAltPoss(lN);
 
-            //check if left child has a lossture score
-            if (!std::isnan(this->lossWildScore(lN))) {
-                result = addLogProb(result,
-                                    this->lossWildScore(lN) + this->hetScore(rN));
-            }
+            computeValues = true;
+
+        }
+        if (tree[rN].sample == -1)
+        {
+            // loss alternative chromosome
+            rightContAltLos = addLogProb(this->lossAltScore(rN), 0) + this->hetScore(lN);
+            // loss wild type chromosome
+            rightContWildLos = addLogProb(this->lossWildScore(rN), this->homScore(rN)) + this->hetScore(lN);
+
+            this->numAltPoss(attachPoint) += this->numAltPoss(rN) + 1;
+
+            this->numAltRPoss(attachPoint) += this->numAltPoss(rN);
+
+            computeValues = true;
         }
 
-        // check if left right is inner node
-        bool rNisInnerNode = tree[rN].sample == -1;
-        if (rNisInnerNode) {
+        if(computeValues == true)
+        {
+            // compute P_LA
+            this->lossAltScore(attachPoint) = addLogProb(leftContAltLos, rightContAltLos);
 
-            // check if left child of the left child is an inner node
-            auto rIt = out_edges(rN, tree).first;
-            unsigned lrN = target(*rIt, tree);// left child of left node
-            bool lrNisInnerNode = tree[lrN].sample == -1;
-            if (lrNisInnerNode) {
-                double lrNScore = this->hetScore(attachPoint)
-                                  - this->hetScore(lrN);
-                result = addLog_nan_x(result, lrNScore);
-            }
-
-            // check if right child of the left child is an inner node
-            unsigned rrN = target(*(rIt + 1), tree); // right child of left node
-            bool rrNisInnerNode = tree[rrN].sample == -1;
-            if (rrNisInnerNode) {
-                double rrNScore = this->hetScore(attachPoint)
-                                  - this->hetScore(rrN);
-                result = addLog_nan_x(result, rrNScore);
-            }
-
-            //check if right child has a lossture score
-            if (!std::isnan(this->lossWildScore(rN))) {
-                result = addLogProb(result,
-                                    this->lossWildScore(rN) + this->hetScore(lN));
-            }
+            // compute P_LAR
+            this->lossAltRScore(attachPoint) = addLogProb(this->lossAltScore(lN) + this->hetScore(rN),
+                                                          this->hetScore(lN) + this->lossAltScore(rN));
+            // compute P_LW
+            this->lossWildScore(attachPoint) = addLogProb(leftContWildLos, rightContWildLos);
         }
-        this->lossWildScore(attachPoint) = result;
     }
+
+    template<typename TTree>
+    void computeLogLcaScoreInnerNode(
+            TTree const &tree,
+            unsigned attachPoint){
+
+        auto it = out_edges(attachPoint, tree).first;
+        unsigned lN = target(*it, tree);                // left node id
+        unsigned rN = target(*(it + 1), tree);          // right node id
+
+        this->hetSumScore(attachPoint) = addLogProb(hetScore(attachPoint),
+                addLogProb(hetSumScore(lN), hetSumScore(rN)));
+
+        // check if child nodes are inner nodes
+        if(tree[lN].sample == -1 && tree[rN].sample == -1) {
+//            this->hetSumScore(attachPoint) = addLogProb(hetScore(attachPoint),
+//                    addLogProb(hetSumScore(lN), hetSumScore(rN)));
+
+            this->childHetSumScore(attachPoint) = addLogProb(this->hetScore(lN), this->hetScore(rN));
+//            this->grantChildHetSumScore(attachPoint) = subLogProb(
+//                    this->hetSumScore(attachPoint), addLogProb(
+//                    this->hetScore(attachPoint), this->childHetSumScore(attachPoint)));
+            this->lcaScore(attachPoint) = hetSumScore(lN) + hetSumScore(rN);
+
+            double hetContLcaR = this->hetScore(lN) + this->hetScore(rN);
+            double leftContLcaR = this->childHetSumScore(lN) + this->hetScore(rN);
+            double rightContLcaR = this->hetScore(lN) + this->childHetSumScore(rN);
+            this->lcaRScore(attachPoint) = subLogProb(
+                    subLogProb(this->lcaScore(attachPoint), hetContLcaR),
+                    addLogProb(leftContLcaR, rightContLcaR));
+
+            this->numInnerNodes(attachPoint) = this->numInnerNodes(lN) + this->numInnerNodes(rN) + 2;
+            this->numInnerChildNodes(attachPoint) = 2;
+            this->numLcaRPoss(attachPoint) = (this->numInnerNodes(lN) + 1) * (this->numInnerNodes(rN) + 1)
+                                             - 1
+                                             - this->numInnerChildNodes(rN)
+                                             - this->numInnerChildNodes(lN);
+            return;
+        }
+
+        if(tree[lN].sample == -1)
+        {
+            this->numInnerNodes(attachPoint) = 1 + this->numInnerNodes(lN);
+            this->numInnerChildNodes(attachPoint) = 1;
+            return;
+        }
+
+        if(tree[rN].sample == -1)
+        {
+            this->numInnerNodes(attachPoint) = 1 + this->numInnerNodes(rN);
+            this->numInnerChildNodes(attachPoint) = 1;
+            return;
+        }
+    }
+
+
 };
 
 #endif

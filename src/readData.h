@@ -1091,7 +1091,7 @@ void readGraph(Config<TTreeType> & config)
     std::get<1>(config.dataUsageRate) = 1.0;
     inFile.open(config.loadName + "/tree.gv");
 
-    string line;
+    std::string line;
     std::vector<std::string> splitVec;
     std::vector<int> sampleIds;
    
