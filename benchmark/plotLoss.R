@@ -28,10 +28,10 @@ df$vio <- as.factor(df$vio)
 df$tool <- factor(df$tool, levels = c("Monovar", "SCIPhI"))
 
 
-ggplot(data = df, aes(x = vio, y = recall, fill = tool)) + 
+ggplot(data = df, aes(x = loss, y = recall, fill = tool)) +
   geom_point(position = position_jitterdodge(jitter.width = 1), aes(colour = tool), show.legend = FALSE) +
   geom_boxplot(outlier.size = NULL, outlier.shape = NA, alpha = 0.5) +
-  xlab("Fraction of violations") +
+  xlab("Fraction of mutation losses") +
   ylab("Recall") +
   scale_y_continuous(limits = c(min(0.5, df$recall - 0.01), 1)) +
 
@@ -44,10 +44,10 @@ ggplot(data = df, aes(x = vio, y = recall, fill = tool)) +
   scale_fill_manual(values = c("firebrick3", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi))))
 ggsave(paste(gsub(".txt","",inputName), "_rec.pdf", sep=""))
   
-ggplot(data = df, aes(x = vio, y = precision, fill = tool)) + 
+ggplot(data = df, aes(x = loss, y = precision, fill = tool)) +
   geom_point(position = position_jitterdodge(jitter.width = 1), aes(colour = tool), show.legend = FALSE) +
   geom_boxplot(outlier.size = NULL, outlier.shape = NA, alpha = 0.5) +
-  xlab("Fraction of violations") +
+  xlab("Fraction of mutation losses") +
   ylab("Precision") +
   expand_limits(y=0.9) +
   theme(legend.title=element_blank(),
@@ -59,10 +59,10 @@ ggplot(data = df, aes(x = vio, y = precision, fill = tool)) +
   scale_fill_manual(values = c("firebrick3", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi))))
 ggsave(paste(gsub(".txt","",inputName), "_pre.pdf", sep=""))
 
-ggplot(data = df, aes(x = vio, y = f1, fill = tool)) + 
+ggplot(data = df, aes(x = loss, y = f1, fill = tool)) +
   geom_point(position = position_jitterdodge(jitter.width = 1), aes(colour = tool), show.legend = FALSE) +
   geom_boxplot(outlier.size = NULL, outlier.shape = NA, alpha = 0.5) +
-  xlab("Fraction of violations") +
+  xlab("Fraction of mutation losses") +
   ylab("F1 score") +
   scale_y_continuous(limits = c(min(0.6, df$f1 - 0.01), 1)) +
   theme(legend.title=element_blank(),

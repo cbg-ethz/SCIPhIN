@@ -57,7 +57,6 @@ struct Options
 	double dropOutRate;
 	double missingInformation;
     double clbm; // chromosome loss before mutation occurred
-    double clam; // chromosome loss after mutation happened
     double cpn; // fraction of mutations with copy number changes
     unsigned numRecMut; // number of recurring mutations
     unsigned numLossMut; // number of mutations lost
@@ -71,7 +70,6 @@ struct Options
 		dropOutRate(0.0),
 		missingInformation(0.0),
         clbm(0.0),
-        clam(0.0),
         cpn(0.0),
         numRecMut(0),
         numLossMut(0),
@@ -95,7 +93,6 @@ parseCommandLine(Options & options, int argc, char const ** argv)
 	addOption(parser, ArgParseOption("np", "NumPositions", "Number of positions to generate.", ArgParseArgument::INTEGER, "NUMMUTATIONS"));
 	addOption(parser, ArgParseOption("dor", "DropOutRate", "The allelic drop out rate.", ArgParseArgument::DOUBLE, "DROPOUTRATE"));
 	addOption(parser, ArgParseOption("clbm", "ChromLostBeforeMutation", "Fraction of homocygous mutations.", ArgParseArgument::DOUBLE, "cygocitycoeff"));
-	addOption(parser, ArgParseOption("clam", "ChromLosAfterMut", "The allelic drop out rate.", ArgParseArgument::DOUBLE, "DROPOUTRATE"));
 	addOption(parser, ArgParseOption("cpn", "CopyNumber", "The copy number rate.", ArgParseArgument::DOUBLE, "COPYNUMBERRATE"));
 	addOption(parser, ArgParseOption("nrm", "NumRecMutations", "Number of reccuring mutations.", ArgParseArgument::INTEGER, "NUMRECMUTS"));
 	addOption(parser, ArgParseOption("nlm", "NumLossMutations", "Number of mutations lost.", ArgParseArgument::INTEGER, "NUMLOSSMUTS"));
@@ -144,8 +141,6 @@ parseCommandLine(Options & options, int argc, char const ** argv)
         getOptionValue(options.dropOutRate, parser, "dor");
     if (isSet(parser, "clbm"))
         getOptionValue(options.clbm, parser, "clbm");
-    if (isSet(parser, "clam"))
-        getOptionValue(options.clam, parser, "clam");
     if (isSet(parser, "cpn"))
         getOptionValue(options.cpn, parser, "cpn");
     if (isSet(parser, "nrm"))
@@ -274,9 +269,31 @@ void assignMutation(
 // This function checks if they are in different lineages
 bool recMutInDifferentLineages(unsigned firstPlace,
                                 unsigned secondPlace,
-                                unsigned mut,
                                 std::vector<unsigned> const & treeStructure)
 {
+    // Check whether the two nodes are the same.
+    if (firstPlace == secondPlace)
+    {
+        return false;
+    }
+
+    // Check whether the two nodes are siblings
+    int firstParent = treeStructure[firstPlace];
+    int secondParent = treeStructure[secondPlace];
+    if (firstParent == secondParent)
+    {
+        return false;
+    }
+
+    // Check whether the two nodes are in a aunt/uncle relationship
+    int firstGrantParent = treeStructure[firstParent];
+    int secondGrantParent = treeStructure[secondParent];
+    if ( (firstGrantParent == secondParent) || firstParent == secondGrantParent)
+    {
+        return false;
+    }
+
+    // Check whether the two nodes are in the same linage
     int firstIndex = firstPlace;
     while(firstIndex != -1)
     {
@@ -296,10 +313,7 @@ bool recMutInDifferentLineages(unsigned firstPlace,
         secondIndex = treeStructure[secondIndex];
     }
 
-    if (treeStructure[firstPlace] == treeStructure[secondPlace])
-    {
-        return false;
-    }
+
     return true;
     
 }
@@ -307,21 +321,26 @@ bool recMutInDifferentLineages(unsigned firstPlace,
 // This function checks if two random nodes are in the same lineage and that they are not in a parent relationship.
 bool lossInSameLineage(unsigned firstPlace,
                                 unsigned secondPlace,
-                                unsigned mut,
+                                bool isRefLost,
                                 std::vector<unsigned> const & treeStructure)
 {
-    // Check whether the two nodes are in a parent relationship.
-    if ( (firstPlace == secondPlace) || (treeStructure[secondPlace] == firstPlace) )
+    // Check whether the two nodes are the same.
+    if (firstPlace == secondPlace)
     {
         return false;
     }
 
-    // Check if the two nodes are in the same lineage.
+    // If the mutated allele was lost the nodes must not be in a parent relationship
+    if (!isRefLost && (treeStructure[secondPlace] == firstPlace) )
+    {
+        return false;
+    }
+
+    // Check if the first node is somewhere above the second node
     while(secondPlace != -1)
     {
         if (secondPlace == firstPlace)
         {
-            // return true if both conditions are met
             return true;
         }
         secondPlace = treeStructure[secondPlace];
@@ -357,10 +376,10 @@ std::vector<std::vector<int>> assignMutationToNodesSampleTree(std::vector<unsign
     for (; i < options.numMutations; ++i)
     {
         unsigned nodeId = getRandomNodeId(treeStructure, options);
-        if (options.numRecMut > i + 1)
+        if (options.numRecMut > i)
         {
             unsigned nodeIdTwo = getRandomNodeId(treeStructure, options);
-            while (!recMutInDifferentLineages(nodeId, nodeIdTwo, i, treeStructure))
+            while (!recMutInDifferentLineages(nodeId, nodeIdTwo, treeStructure))
             {
                 nodeId = getRandomNodeId(treeStructure, options);
                 nodeIdTwo = getRandomNodeId(treeStructure, options);
@@ -368,16 +387,17 @@ std::vector<std::vector<int>> assignMutationToNodesSampleTree(std::vector<unsign
             assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeId, i, mutType, numMutsPerNode, options);
             assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeIdTwo, i, mutType, numMutsPerNode, options);
         }
-        else if (options.numRecMut + options.numLossMut > i + 1)
+        else if (options.numRecMut + options.numLossMut > i)
         {
+            bool isRefLost = rand() % 2;
             unsigned nodeIdTwo = getRandomNodeId(treeStructure, options);
-            while (!lossInSameLineage(nodeId, nodeIdTwo, i, treeStructure))
+            while (!lossInSameLineage(nodeId, nodeIdTwo, isRefLost, treeStructure))
             {
                 nodeId = getRandomNodeId(treeStructure, options);
                 nodeIdTwo = getRandomNodeId(treeStructure, options);
             }
             assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeId, i, mutType, numMutsPerNode, options);
-            assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeIdTwo, i, 0, numMutsPerNode, options);
+            assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeIdTwo, i, isRefLost ? 3 : 0, numMutsPerNode, options);
         }
         else
         {
@@ -571,7 +591,6 @@ void sampleMutationPositionsOnGenome(std::map<unsigned, unsigned> & positionMap,
             positionMap.insert(std::pair<unsigned, unsigned>(pos, i));
             positionVec[i] = pos;
         }
-        std::cout << "pos: " << i << " " << pos << std::endl;
     }
 }
 
