@@ -524,8 +524,8 @@ void estimateSeqErrorRate(Config<TTreeType> & config,
 
     if(seqErrorsCombCov > 0)
     {
-        config.setParam(Config<TTreeType>::wildMean, static_cast<double>(seqErrors)/static_cast<double>(seqErrorsCombCov));
-        config.setTmpParam(Config<TTreeType>::wildMean, config.getParam(Config<TTreeType>::wildMean));
+        config.setParam(Config<TTreeType>::E_wildMean, static_cast<double>(seqErrors)/static_cast<double>(seqErrorsCombCov));
+        config.setTmpParam(Config<TTreeType>::E_wildMean, config.getParam(Config<TTreeType>::E_wildMean));
     }
 }   
 
@@ -780,7 +780,7 @@ bool computeProbCellsAreMutated(
         swap(logProbs, tempLogProbs);
         logNOverK = logNChooseK(numCells, numMut, logNOverK);
         double logH1Temp = logProbs.back() + log(prior) - logNOverK;
-        logH1Temp = updateLogH1Temp(logH1Temp, numCells, numMut, tumorCells, (1.0 - config.getParam(Config<TTreeType>::mu)) / 2.0);
+        logH1Temp = updateLogH1Temp(logH1Temp, numCells, numMut, tumorCells, (1.0 - config.getParam(Config<TTreeType>::E_mu)) / 2.0);
 
         // check whether the alternative hyothesis can win
         bool h0Wins = mustH0Win(logH1Max, logH1Temp, logNumCells, logH0);
@@ -1143,38 +1143,38 @@ void readNucInfo(Config<TTreeType> & config)
     {
         std::getline(inFile, line);
         boost::split(splitVec, line, boost::is_any_of("\t"));
-        config.setParam(Config<SampleTree>::wildMean, std::stod(splitVec[0]));
-        config.setSDParam(Config<SampleTree>::wildMean, std::stod(splitVec[1]));
-        config.setSDCountParam(Config<SampleTree>::wildMean, std::stoi(splitVec[2]));
-        config.setSDTrialsParam(Config<SampleTree>::wildMean, std::stoi(splitVec[3]));
+        config.setParam(Config<SampleTree>::E_wildMean, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_wildMean, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_wildMean, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_wildMean, std::stoi(splitVec[3]));
 
         std::getline(inFile, line);
         boost::split(splitVec, line, boost::is_any_of("\t"));
-        config.setParam(Config<SampleTree>::wildOverDis, std::stod(splitVec[0]));
-        config.setSDParam(Config<SampleTree>::wildOverDis, std::stod(splitVec[1]));
-        config.setSDCountParam(Config<SampleTree>::wildOverDis, std::stoi(splitVec[2]));
-        config.setSDTrialsParam(Config<SampleTree>::wildOverDis, std::stoi(splitVec[3]));
+        config.setParam(Config<SampleTree>::E_wildOverDis, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_wildOverDis, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_wildOverDis, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_wildOverDis, std::stoi(splitVec[3]));
 
         std::getline(inFile, line);
         boost::split(splitVec, line, boost::is_any_of("\t"));
-        config.setParam(Config<SampleTree>::mutationOverDis, std::stod(splitVec[0]));
-        config.setSDParam(Config<SampleTree>::mutationOverDis, std::stod(splitVec[1]));
-        config.setSDCountParam(Config<SampleTree>::mutationOverDis, std::stoi(splitVec[2]));
-        config.setSDTrialsParam(Config<SampleTree>::mutationOverDis, std::stoi(splitVec[3]));
+        config.setParam(Config<SampleTree>::E_mutationOverDis, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_mutationOverDis, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_mutationOverDis, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_mutationOverDis, std::stoi(splitVec[3]));
 
         std::getline(inFile, line);
         boost::split(splitVec, line, boost::is_any_of("\t"));
-        config.setParam(Config<SampleTree>::mu, std::stod(splitVec[0]));
-        config.setSDParam(Config<SampleTree>::mu, std::stod(splitVec[1]));
-        config.setSDCountParam(Config<SampleTree>::mu, std::stoi(splitVec[2]));
-        config.setSDTrialsParam(Config<SampleTree>::mu, std::stoi(splitVec[3]));
+        config.setParam(Config<SampleTree>::E_mu, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_mu, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_mu, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_mu, std::stoi(splitVec[3]));
 
         std::getline(inFile, line);
         boost::split(splitVec, line, boost::is_any_of("\t"));
-        config.setParam(Config<SampleTree>::nu, std::stod(splitVec[0]));
-        config.setSDParam(Config<SampleTree>::nu, std::stod(splitVec[1]));
-        config.setSDCountParam(Config<SampleTree>::nu, std::stoi(splitVec[2]));
-        config.setSDTrialsParam(Config<SampleTree>::nu, std::stoi(splitVec[3]));
+        config.setParam(Config<SampleTree>::E_nu, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_nu, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_nu, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_nu, std::stoi(splitVec[3]));
     }
 
     std::getline(inFile, line);

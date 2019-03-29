@@ -53,26 +53,27 @@ printLogScores(Config<TTreeType> & config)
 	}
 }
 
-// This function keeps the coeffients between 0 and 1
+// This function keeps the coefficients between 0 and 1
 // by mirroring at 0 or 1
-double adjusteCoefficient(double losstureCoEff)
+double adjusteCoefficient(double coEff)
 {
     while(true)
     {
-        if(losstureCoEff < 0.0)
+        if(coEff < 0.0)
         {
-            losstureCoEff = std::abs(losstureCoEff);
+            coEff = std::abs(coEff);
         }
-        else if (losstureCoEff > 1.0)
+        else if (coEff > 1.0)
         {
-            losstureCoEff = 1.0 - std::abs(1 - losstureCoEff);
+            //coEff =  1.0 - std::abs(1 - coEff);
+            coEff = 2.0 - coEff;
         }
         else
         {
             break;
         }
     }
-    return losstureCoEff;
+    return coEff;
 }
 
 // This function assures that the overdispersion of the heterozygous mutation
@@ -94,6 +95,22 @@ changeParameters(Config<TTreeType> & config)
     config.setTmpLogScores(config.getLogScores());
 
     //choose which parameter to optimize
+    unsigned numParams = 4 + config.computeLossScore + config.learnZygocity + config.computeParallelScore;
+    unsigned paramIdx = rand() % numParams;
+    if(paramIdx > 3) {
+        if (paramIdx == 4 && !config.learnZygocity)
+        {
+            ++paramIdx;
+        }
+        if (paramIdx == 5 && !config.computeLossScore)
+        {
+            ++paramIdx;
+        }
+    }
+    typename Config<TTreeType>::ParamType param = (typename Config<TTreeType>::ParamType)paramIdx;
+    config.setParamToOptimize(param);
+
+    /*
     if (config.computeLossScore && config.learnZygocity) 
     {
         config.setParamToOptimize((typename Config<TTreeType>::ParamType)(rand() % 6));
@@ -111,8 +128,9 @@ changeParameters(Config<TTreeType> & config)
         config.setParamToOptimize((typename Config<TTreeType>::ParamType)(rand() % 4));
     }
     typename Config<TTreeType>::ParamType const & param = config.getParamToOptimize();
+     */
 
-    // update the standard deviaten of the chosen parameter every 1000 steps
+    // update the standard deviation of the chosen parameter every 1000 steps
     if (config.getSDTrialsParam(param) == 1000)
     {
         double sucRate = static_cast<double>(config.getSDCountParam(param))/static_cast<double>(config.getSDTrialsParam(param));
@@ -130,24 +148,27 @@ changeParameters(Config<TTreeType> & config)
     std::normal_distribution<double> distribution(oldParamValue, config.getSDParam(param));
     double newParamValue = distribution(config.getGenerator());
 
-    if (param == Config<TTreeType>::ParamType::mu || 
-            param == Config<TTreeType>::ParamType::nu ||
-            param == Config<TTreeType>::ParamType::lambda) 
+    if (paramIdx > 3)
     {
         newParamValue = adjusteCoefficient(newParamValue);
+        double sumParams = config.getParam(Config<TTreeType>::ParamType::E_nu)
+                + config.getParam(Config<TTreeType>::ParamType::E_lambda)
+                + config.getParam(Config<TTreeType>::ParamType::E_parallel);
+        if (sumParams > 1)
+        {
+            for (unsigned i = 4; i < 7; ++i) {
+                config.setParam(typename Config<TTreeType>::ParamType(i),
+                        config.getParam(typename Config<TTreeType>::ParamType(i)) / sumParams);
+            }
+        }
     }
-    else if (param == Config<TTreeType>::ParamType::mutationOverDis)
+    else if (param == Config<TTreeType>::ParamType::E_mutationOverDis)
     {
         newParamValue = adjustMutOverDis(newParamValue);
     }
 
-    //if (param == Config<TTreeType>::ParamType::mu)
-    //{
-    //    newParamValue = 0;
-    //}
-
     config.setParam(param, std::abs(newParamValue));
-    if (param == Config<TTreeType>::ParamType::wildOverDis || param == Config<TTreeType>::ParamType::wildMean)
+    if (param == Config<TTreeType>::ParamType::E_wildOverDis || param == Config<TTreeType>::ParamType::E_wildMean)
     {
         computeNoiseScore(config);
     }
@@ -235,29 +256,29 @@ updateMutInSampleCounts(Config<SampleTree> & config)
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
 
     // for all mutations
-    for (size_t attachment = 0; attachment < config.getNumAttachments(); ++attachment)
-    {
+    for (size_t attachment = 0; attachment < config.getNumAttachments(); ++attachment) {
         // get the attachment scores
-        scoreSum.setMinusInfinity();
+        scoreSum = AttachmentScore();
         getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
 
         // traverse the attachment scores to the leaves
-        scoreSum.setMinusInfinity();
+        scoreSum = AttachmentScore();
         PassScoreToChildrenBFSVisitor visBFS(config,
-                attachmentScores,
-                attachmentSumScores,
-                passDownAttachmentScores,
-                passDownAttachmentSumScores,
-                scoreSum,
-                attachment);
+                                             attachmentScores,
+                                             attachmentSumScores,
+                                             passDownAttachmentScores,
+                                             passDownAttachmentSumScores,
+                                             scoreSum,
+                                             attachment);
         breadth_first_search(config.getTree(), num_vertices(config.getTree()) - 1, visitor(visBFS));
 
-        // compute the probability of the tree to be in hetero- or homozygous state
-        double logPHet = scoreSum.hetScore() + std::log((1.0 - config.getParam(Config<SampleTree>::nu))) - std::log(config.getNumSamples() * 2 - 1);
-        double logPHom = scoreSum.homScore() + std::log( config.getParam(Config<SampleTree>::nu)) - std::log(config.getNumSamples() - 1);
-        double logPD = addLogProb(logPHet, logPHom);
-        logPHet -= logPD;
-        logPHom -= logPD;
+        static std::array<double, 5> res;
+        scoreSum.computeMutTypeContribution(config, scoreSum, res);
+
+        double logPHet = res[0] - res[4];
+        double logPHom = res[1] - res[4];
+        double logPLoss = res[2] - res[4];
+        double logPPara = res[3] - res[4];
         
         // for all attachment positions
         for (unsigned i = 0; i < attachmentScores.size(); ++i)
@@ -268,7 +289,11 @@ updateMutInSampleCounts(Config<SampleTree> & config)
                 attachmentScores[i] -= scoreSum;
 
                 // compute final score
-                attachmentScores[i].finalScore() = addLogProb(attachmentScores[i].hetScore() + logPHet, attachmentScores[i].homScore() + logPHom);
+                attachmentScores[i].finalScore() = addLogProb(addLogProb(addLogProb(
+                        attachmentSumScores[i].hetScore() + logPHet,
+                        attachmentSumScores[i].homScore() + logPHom),
+                        addLogProb(attachmentSumScores[i].lossWildScore(), attachmentSumScores[i].lossAltScore()) + logPLoss),
+                        passDownAttachmentSumScores[i].paralleleScore() + logPPara);
 
                 // update the counter
                 config.mutInSampleCounter[config.getTree()[i].sample][attachment].addInRealSpace(attachmentScores[i]);

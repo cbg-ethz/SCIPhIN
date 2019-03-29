@@ -280,11 +280,11 @@ void writeNucInfo(Config<SampleTree> const & config, std::string const & dir)
     outFile << config.getNumSamples() << "\n";
     
     outFile << "=params=" << "\n";
-    outFile << config.getParam(Config<SampleTree>::wildMean) << "\t"<< config.getSDParam(Config<SampleTree>::wildMean) << "\t" << config.getSDCountParam(Config<SampleTree>::wildMean) << "\t" << config.getSDTrialsParam(Config<SampleTree>::wildMean) << "\n";
-    outFile << config.getParam(Config<SampleTree>::wildOverDis) << "\t" << config.getSDParam(Config<SampleTree>::wildOverDis) << "\t" << config.getSDCountParam(Config<SampleTree>::wildOverDis) << "\t" << config.getSDTrialsParam(Config<SampleTree>::wildOverDis) << "\n";
-    outFile << config.getParam(Config<SampleTree>::mutationOverDis) << "\t"<< config.getSDParam(Config<SampleTree>::mutationOverDis) << "\t" << config.getSDCountParam(Config<SampleTree>::mutationOverDis) << "\t" << config.getSDTrialsParam(Config<SampleTree>::mutationOverDis) << "\n";
-    outFile << config.getParam(Config<SampleTree>::mu) << "\t"<< config.getSDParam(Config<SampleTree>::mu) << "\t" << config.getSDCountParam(Config<SampleTree>::mu) << "\t" << config.getSDTrialsParam(Config<SampleTree>::mu) << "\n";
-    outFile << config.getParam(Config<SampleTree>::nu) << "\t"<< config.getSDParam(Config<SampleTree>::nu) << "\t" << config.getSDCountParam(Config<SampleTree>::nu) << "\t" << config.getSDTrialsParam(Config<SampleTree>::nu) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_wildMean) << "\t"<< config.getSDParam(Config<SampleTree>::E_wildMean) << "\t" << config.getSDCountParam(Config<SampleTree>::E_wildMean) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_wildMean) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_wildOverDis) << "\t" << config.getSDParam(Config<SampleTree>::E_wildOverDis) << "\t" << config.getSDCountParam(Config<SampleTree>::E_wildOverDis) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_wildOverDis) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_mutationOverDis) << "\t"<< config.getSDParam(Config<SampleTree>::E_mutationOverDis) << "\t" << config.getSDCountParam(Config<SampleTree>::E_mutationOverDis) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_mutationOverDis) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_mu) << "\t"<< config.getSDParam(Config<SampleTree>::E_mu) << "\t" << config.getSDCountParam(Config<SampleTree>::E_mu) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_mu) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_nu) << "\t"<< config.getSDParam(Config<SampleTree>::E_nu) << "\t" << config.getSDCountParam(Config<SampleTree>::E_nu) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_nu) << "\n";
 
     outFile << "=mutations=" << "\n";
     for (unsigned i = 0; i < config.indexToPosition.size(); ++i)
@@ -368,7 +368,7 @@ void writeMutToMaxTree(Config<TTreeType>  & config)
     {
         double score = getBestAttachmentScore(config, i);
         
-        scoreSum.setMinusInfinity();
+        scoreSum = AttachmentScore();
         for (unsigned i = 0; i < attachmentScores.size(); ++i)
         {
             scoreSum.addInRealSpace(attachmentScores[i]);

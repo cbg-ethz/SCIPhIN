@@ -35,7 +35,8 @@ double addLogProb(double x, double y);
 
 double subLogProb(double x, double y);
 
-double addLog_nan_x(double result, double rlNScore);
+template <typename TTreeType>
+class Config;
 
 /*
  * This class stores values associated with the attachment of mutations
@@ -65,13 +66,14 @@ struct AttachmentScore {
                                             // events with additional restrictions
         E_grantChildHetSumScore = 9,       // probability of a mutation below the current node, but not in itself
                                             // or the child nodes
-        E_numAltPoss = 10,                  // number of different possibilities to loose the current mutation
-        E_numAltRPoss = 11,                 // number of different possibilities to loose the current mutation (but not directly in
+        E_finalScore = 10,                  // final combined score
+        E_numAltPoss = 11,                  // number of different possibilities to loose the current mutation
+        E_numAltRPoss = 12,                 // number of different possibilities to loose the current mutation (but not directly in
                                             // the child nodes
-        E_numInnerNodes = 12,               // number of inner nodes below the current one
-        E_numInnerChildNodes = 13,          // number of child nodes that are inner nodes (0, 1, or 2)
-        E_numLcaRPoss = 14,                 // number of possibilities for a parallel mutation below the current node
-        E_finalScore = 15                   // final combined score
+        E_numInnerNodes = 13,               // number of inner nodes below the current one
+        E_numInnerChildNodes = 14,          // number of child nodes that are inner nodes (0, 1, or 2)
+        E_numLcaRPoss = 15                 // number of possibilities for a parallel mutation below the current node
+
 
     };
 
@@ -88,12 +90,12 @@ struct AttachmentScore {
                                      -INFINITY,
                                      -INFINITY,
                                      -INFINITY,
+                                     -INFINITY,
                                      0,
                                      0,
                                      0,
                                      0,
-                                     0,
-                                     -INFINITY}}) {};
+                                     0}}) {};
 
     // transform attachment scores into log
     void log() {
@@ -237,56 +239,11 @@ struct AttachmentScore {
         return this->attachmentScore[E_finalScore];
     }
 
-    /*AttachmentScore &operator+=(AttachmentScore const &rightSide) {
-        this->hetScore() += rightSide.hetScore();
-        this->homScore() += rightSide.homScore();
-        // this check is necessary as there is not always a loss score available to be added
-        if (!isnan(rightSide.lossWildScore())) {
-            this->lossWildScore() += rightSide.lossWildScore();
-        }
-        if (!isnan(rightSide.lossAltScore())) {
-            this->lossAltScore() += rightSide.lossAltScore();
-        }
-        this->finalScore() += rightSide.finalScore();
-
-        return *this;
-    }
-
-    AttachmentScore &operator+=(AttachmentScore &rightSide) {
-        this->hetScore() += rightSide.hetScore();
-        this->homScore() += rightSide.homScore();
-
-        // this check is necessary as there is not always a loss score available to be added
-        if (!isnan(rightSide.lossWildScore())) {
-            this->lossWildScore() += rightSide.lossWildScore();
-        }
-        if (!isnan(rightSide.lossAltScore())) {
-            this->lossAltScore() += rightSide.lossAltScore();
-        }
-        this->finalScore() += rightSide.finalScore();
-
-        return *this;
-    }*/
-
     AttachmentScore &operator-=(AttachmentScore &rightSide) {
         for (unsigned i =0; i < this->attachmentScore.size(); ++i)
         {
             this->attachmentScore[i] -= rightSide.attachmentScore[i];
         }
-
-        /*
-        this->hetScore() -= rightSide.hetScore();
-        this->homScore() -= rightSide.homScore();
-        // this check is necessary as there is not always a loss score available to be added
-        if (!isnan(rightSide.lossWildScore())) {
-            this->lossWildScore() -= rightSide.lossWildScore();
-        }
-        if (!isnan(rightSide.lossAltScore())) {
-            this->lossAltScore() -= rightSide.lossAltScore();
-        }
-        this->finalScore() -= rightSide.finalScore();
-         */
-
         return *this;
     }
 
@@ -294,65 +251,96 @@ struct AttachmentScore {
     // returns the log of the sum
 
     void addInRealSpace(AttachmentScore const &rightSide) {
-        for (unsigned i = 0; i < this->attachmentScore.size(); ++i) {
+        for (unsigned i = 0; i < 11; ++i) {
             this->attachmentScore[i] = addLogProb(this->attachmentScore[i], rightSide.attachmentScore[i]);
         }
-
-        /*
-        this->hetScore() = addLogProb(this->hetScore(), rightSide.hetScore());
-        this->homScore() = addLogProb(this->homScore(), rightSide.homScore());
-        if (!isnan(rightSide.lossWildScore())) {
-            this->lossWildScore() = addLogProb(this->lossWildScore(), rightSide.lossWildScore());
+        for (unsigned i = 11; i < this->attachmentScore.size(); ++i) {
+            this->attachmentScore[i] += rightSide.attachmentScore[i];
         }
-        if (!isnan(rightSide.lossAltScore())) {
-            this->lossAltScore() = addLogProb(this->lossAltScore(), rightSide.lossAltScore());
-        }
-        this->finalScore() = addLogProb(this->finalScore(), rightSide.finalScore());*/
     }
 
     AttachmentScore &operator/=(double rightSide) {
-        for (unsigned i = 0; i < 8; ++i) {
+        for (unsigned i = 0; i < this->attachmentScore.size(); ++i) {
             this->attachmentScore[i] /= rightSide;
         }
         return *this;
     }
 
+    template <typename TTreeType>
+    std::array<double, 5> computeMutTypeContribution(Config<TTreeType> const & config,
+            AttachmentScore const & sumScore,
+            std::array<double, 5> & res) const
+    {
+        double logPHet = -INFINITY;
+        double logPHom = -INFINITY;
+        double logPLoss = -INFINITY;
+        double logPPara = -INFINITY;
+        double logPD = -INFINITY;
+        double hetWeight = 1.0;
+
+        if (config.learnZygocity)
+        {
+            unsigned numInnerNodes = config.getNumSamples() - 1;
+            logPHom = this->homScore()
+                      - std::log(numInnerNodes)
+                      + std::log(config.getParam(Config<TTreeType>::E_nu));
+            hetWeight -= config.getParam(Config<TTreeType>::E_nu);
+        }
+
+        if (config.computeLossScore)
+        {
+            double lossR = this->lossWildScore() - std::log(sumScore.numInnerNodes());
+            double lossA = this->lossAltRScore() - std::log(sumScore.numAltRPoss());
+            logPLoss = addLogProbWeight(lossR, lossA, 0.5)
+                       + std::log(config.getParam(Config<TTreeType>::E_lambda));
+            hetWeight -= config.getParam(Config<TTreeType>::E_lambda);
+        }
+
+        if (config.computeParallelScore)
+        {
+            logPPara = this->lcaRScore()
+                       - std::log(sumScore.numLcaRPoss())
+                       + std::log(config.getParam(Config<TTreeType>::E_parallel));
+            hetWeight -= config.getParam(Config<TTreeType>::E_parallel);
+        }
+
+        unsigned numNodes = config.getNumSamples() * 2 - 1;
+        logPHet = this->hetScore()
+                  - std::log(numNodes)
+                  + std::log(hetWeight);
+
+        logPD = addLogProb(addLogProb(addLogProb(logPHet,logPHom),logPLoss),logPPara);
+
+        res = {{logPHet, logPHom, logPLoss, logPPara, logPD}};
+        return res;
+    }
+
     // this functions computes the final score of an attachment point
-    void computeFinalScore(
-            double nu,
-            double lambda,
-            unsigned numNodes,
-            unsigned numMutPlacements,
-            bool isLeaf,
-            bool useLoss,
-            bool useParallel) {
+    template <typename TTreeType>
+    void computeFinalScore(Config<TTreeType> const & config,
+            AttachmentScore const & sumScore,
+            bool isLeaf) {
+
+        static std::array<double, 5> res;
+        this->computeMutTypeContribution(config, sumScore, res);
+
         // if the node is a leaf just return the weighted hetero score
         if (isLeaf) {
-            this->finalScore() = this->hetScore() - std::log(numNodes * 2 + 1);
+            this->finalScore() = this->hetScore() - std::log(config.getNumSamples() * 2 - 1);
             return;
         }
 
-        if (!useLoss) { // || isnan(this->lossWildScore())) {
-            this->finalScore() = addLogProbWeight(this->hetScore() - std::log(numNodes * 2 + 1),
-                                                  this->homScore() - std::log(numNodes), nu);
-            return;
-        }
-
-        if (!useParallel) {
-            double loss = addLogProbWeight(this->lossWildScore(), this->lossAltScore(), 0.5);
-            this->finalScore() = std::log((1.0 - lambda - nu) / (numNodes * 2 + 1) * std::exp(this->hetScore()) +
-                                          nu / numNodes * std::exp(this->homScore()) +
-                                          lambda / numMutPlacements * std::exp(loss));
-        }
-
+        this->finalScore() = addLogProb(addLogProb(addLogProb(res[0],res[1]),res[2]),res[3]);
         return;
     }
 
-    void setMinusInfinity() {
+    /*
+     void setMinusInfinity() {
         for (unsigned i = 0; i < this->attachmentScore.size(); ++i) {
             this->attachmentScore[i] = -INFINITY;
         }
     }
+     */
 };
 
 template<unsigned N>
@@ -588,9 +576,9 @@ struct AttachmentScores {
             // loss wild type chromosome
             leftContWildLos = addLogProb(this->lossWildScore(lN), this->homScore(lN)) + this->hetScore(rN);
 
-            this->numAltPoss(attachPoint) += this->numAltPoss(lN) + 1;
+            this->numAltPoss(attachPoint) = this->numAltPoss(lN) + 1;
 
-            this->numAltRPoss(attachPoint) += this->numAltPoss(lN);
+            this->numAltRPoss(attachPoint) = this->numAltPoss(lN);
 
             computeValues = true;
 
@@ -636,13 +624,7 @@ struct AttachmentScores {
 
         // check if child nodes are inner nodes
         if(tree[lN].sample == -1 && tree[rN].sample == -1) {
-//            this->hetSumScore(attachPoint) = addLogProb(hetScore(attachPoint),
-//                    addLogProb(hetSumScore(lN), hetSumScore(rN)));
-
             this->childHetSumScore(attachPoint) = addLogProb(this->hetScore(lN), this->hetScore(rN));
-//            this->grantChildHetSumScore(attachPoint) = subLogProb(
-//                    this->hetSumScore(attachPoint), addLogProb(
-//                    this->hetScore(attachPoint), this->childHetSumScore(attachPoint)));
             this->lcaScore(attachPoint) = hetSumScore(lN) + hetSumScore(rN);
 
             double hetContLcaR = this->hetScore(lN) + this->hetScore(rN);

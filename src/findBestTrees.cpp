@@ -93,7 +93,7 @@ int readParameters(Config<TTreeType> & config, int argc, char* argv[]){
 		(",l", boost::program_options::value<decltype(config.loops)>(&config.loops), "Maximal number of iterations before sampling form the posterior distribution of the mutation to cell assignment. [1000000]")
 		("ls", boost::program_options::value<decltype(config.sampleLoops)>(&config.sampleLoops), "Number of iterations in which the mutation to cell assignment is sampled. [100000]")
 		("lz", boost::program_options::value<decltype(config.learnZygocity)>(&config.learnZygocity), "Set to 1 if zygosity should be learned. The zygosity rate is the fraction of mutations which are homozygous in all cells. [0]")
-		("zyg", boost::program_options::value<double>(&std::get<0>(config.params[Config<TTreeType>::nu])), "Zygosity rate. [0]")
+		("zyg", boost::program_options::value<double>(&std::get<0>(config.params[Config<TTreeType>::E_nu])), "Zygosity rate. [0]")
 		("pr", boost::program_options::value<decltype(config.priorMutationRate)>(&config.priorMutationRate), "Prior mutation rate [0.0001].")
 		("uniq,u", boost::program_options::value<decltype(config.uniqTreshold)>(&config.uniqTreshold), "Mark loci with this number of cells being mutated as \"PASS\". [1]")
 		(",e", boost::program_options::value<decltype(config.paramsEstimateRate)>(&config.paramsEstimateRate), "Parameter estimation rate, i.e. the fraction of loops used to estimate the different parameters. [0.2]")

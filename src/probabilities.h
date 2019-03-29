@@ -209,8 +209,8 @@ computeRawWildLogScore(Config<TTreeType> const & config, double altCount, double
 {
     return logBetaBinPDF(altCount, 
         coverage, 
-        config.getParam(Config<TTreeType>::wildMean), 
-        config.getParam(Config<TTreeType>::wildOverDis));
+        config.getParam(Config<TTreeType>::E_wildMean),
+        config.getParam(Config<TTreeType>::E_wildOverDis));
 }
 
 template <typename TTreeType>
@@ -219,8 +219,8 @@ computeRawWildLogScoreOP(Config<TTreeType> const & config, double altCount, doub
 {
     return logBetaBinPDFOP(altCount, 
         coverage, 
-        config.getParam(Config<TTreeType>::wildMean), 
-        config.getParam(Config<TTreeType>::wildOverDis));
+        config.getParam(Config<TTreeType>::E_wildMean),
+        config.getParam(Config<TTreeType>::E_wildOverDis));
 }
 
 template <typename TTreeType>
@@ -229,8 +229,8 @@ computeRawMutLogScore(Config<TTreeType> const & config, double altCount, double 
 {
     return logBetaBinPDF(altCount, 
                 coverage, 
-                config.getParam(Config<TTreeType>::mutationMean), 
-                config.getParam(Config<TTreeType>::mutationOverDis));
+                config.getParam(Config<TTreeType>::E_mutationMean),
+                config.getParam(Config<TTreeType>::E_mutationOverDis));
 }
 
 template <typename TTreeType>
@@ -239,8 +239,8 @@ computeRawMutLogScoreOP(Config<TTreeType> & config, double altCount, double cove
 {
     return logBetaBinPDFOP(altCount, 
                 coverage, 
-                config.getParam(Config<TTreeType>::mutationMean), 
-                config.getParam(Config<TTreeType>::mutationOverDis));
+                config.getParam(Config<TTreeType>::E_mutationMean),
+                config.getParam(Config<TTreeType>::E_mutationOverDis));
 }
 
 template <typename TTreeType>
@@ -259,8 +259,8 @@ computeHomoLogScoreOP(Config<TTreeType> & config, double altCount, double covera
 {
     return logBetaBinPDFOP(coverage-altCount, 
         coverage, 
-        config.getParam(Config<TTreeType>::wildMean), 
-        config.getParam(Config<TTreeType>::wildOverDis));
+        config.getParam(Config<TTreeType>::E_wildMean),
+        config.getParam(Config<TTreeType>::E_wildOverDis));
 }
 
 // This function combines the wild type beta-bin, the hetero beta-bin and the homo mutand beta-bin
@@ -268,7 +268,7 @@ template <typename TTreeType>
 double
 computeHeteroLogScoreOP(Config<TTreeType> & config, double altCount, double coverage)
 {
-    double mu = config.getParam(Config<TTreeType>::mu);
+    double mu = config.getParam(Config<TTreeType>::E_mu);
     double oneMinusMu = 1.0 - mu;
     double logHomo = addLogProbWeight(computeRawWildLogScoreOP(config, altCount, coverage), computeHomoLogScoreOP(config, altCount,  coverage), 0.5);
     return addLogProbWeight(computeRawMutLogScoreOP(config, altCount, coverage), logHomo, oneMinusMu);
@@ -281,7 +281,6 @@ void computeWildLogScoresOP(Config<TTreeType> & config)
 	{
 		for (unsigned int j = 0; j < config.getLogScores()[0].size(); ++j)
 		{
-            //std::get<0>(config.getLogScores()[i][j]) = computeRawWildLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
             std::get<0>(config.getLogScores()[i][j]) = computeWildLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
 		}
 	}
@@ -294,7 +293,6 @@ void computeLogScoresOP(Config<TTreeType> & config)
 	{
 		for (unsigned int j = 0; j < config.getLogScores().numMuts(); ++j)
 		{
-            //config.getLogScores().wtScore(i, j) = computeRawWildLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
             config.getLogScores().wtScore(i, j) = computeWildLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
             config.getLogScores().hetScore(i, j) = computeHeteroLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
             config.getLogScores().homScore(i, j) = computeHomoLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
@@ -307,8 +305,8 @@ void
 computeNoiseScore(Config<SampleTree> & config)
 {
 
-    long double mean = config.getParam(Config<SampleTree>::wildMean);
-    long double overDis = config.getParam(Config<SampleTree>::wildOverDis);
+    long double mean = config.getParam(Config<SampleTree>::E_wildMean);
+    long double overDis = config.getParam(Config<SampleTree>::E_wildOverDis);
     long double alpha = mean * overDis;
     long double beta = overDis * (1.0 - mean);
 

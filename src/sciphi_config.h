@@ -70,7 +70,7 @@ struct ParamsCounter
     std::vector<double> mu;
     std::vector<double> nu;
     std::vector<double> lambda; // experimental
-    std::vector<double> parallele; // experimental
+    std::vector<double> parallel; // experimental
     std::vector<double> wildAlpha;
     std::vector<double> wildBeta;
     std::vector<double> mutAlpha;
@@ -83,7 +83,7 @@ struct ParamsCounter
         mu.resize(newSize, 0);
         nu.resize(newSize, 0);
         lambda.resize(newSize, 0);
-        parallele.resize(newSize, 0);
+        parallel.resize(newSize, 0);
         wildAlpha.resize(newSize, 0);
         wildBeta.resize(newSize, 0);
         mutAlpha.resize(newSize, 0);
@@ -118,14 +118,14 @@ class Config{
 
     // A practical enum for easy access to the parameters
     enum ParamType{
-        wildOverDis = 0, 
-        mutationOverDis = 1, 
-        wildMean = 2, 
-        mu = 3, 
-        nu = 4, 
-        lambda = 5,
-        parallele = 6,
-        mutationMean = 7};
+        E_wildOverDis = 0,
+        E_mutationOverDis = 1,
+        E_wildMean = 2,
+        E_mu = 3,
+        E_nu = 4,
+        E_lambda = 5,
+        E_parallel = 6,
+        E_mutationMean = 7};
 
     // Manu small helper functions, mostly getter and setter
     void updateParamsCounter();
@@ -223,7 +223,7 @@ class Config{
     unsigned                                    loops;
     unsigned                                    reps;
     unsigned                                    fixedSeed;
-    char                                        scoreType = 'm';
+    char                                        scoreType;
     double                                      paramsEstimateRate;
     double                                      priorMutationRate;
     double                                      priorGermlineRate;
@@ -360,13 +360,13 @@ template<typename TTreeType>
 void 
 Config<TTreeType>::updateParamsCounter()
 {
-    this->paramsCounter.wildAlpha.push_back(this->getParam(Config::wildOverDis) * this->getParam(Config::wildMean));
-    this->paramsCounter.wildBeta.push_back(this->getParam(Config::wildOverDis) - this->getParam(Config::wildMean) * this->getParam(Config::wildOverDis));
-    this->paramsCounter.mutAlpha.push_back(this->getParam(Config::mutationOverDis) * this->getParam(Config::mutationMean));
-    this->paramsCounter.mutBeta.push_back(this->getParam(Config::mutationOverDis) - (0.5 -this->getParam(Config::wildMean) ) * this->getParam(Config::mutationOverDis));
-    this->paramsCounter.mu.push_back(this->getParam(Config::mu));
-    this->paramsCounter.nu.push_back(this->getParam(Config::nu));
-    this->paramsCounter.lambda.push_back(this->getParam(Config::lambda));
+    this->paramsCounter.wildAlpha.push_back(this->getParam(Config::E_wildOverDis) * this->getParam(Config::E_wildMean));
+    this->paramsCounter.wildBeta.push_back(this->getParam(Config::E_wildOverDis) - this->getParam(Config::E_wildMean) * this->getParam(Config::E_wildOverDis));
+    this->paramsCounter.mutAlpha.push_back(this->getParam(Config::E_mutationOverDis) * this->getParam(Config::E_mutationMean));
+    this->paramsCounter.mutBeta.push_back(this->getParam(Config::E_mutationOverDis) - (0.5 -this->getParam(Config::E_wildMean) ) * this->getParam(Config::E_mutationOverDis));
+    this->paramsCounter.mu.push_back(this->getParam(Config::E_mu));
+    this->paramsCounter.nu.push_back(this->getParam(Config::E_nu));
+    this->paramsCounter.lambda.push_back(this->getParam(Config::E_lambda));
 }
 
 template<typename TTreeType>
@@ -465,16 +465,16 @@ template<typename TTreeType>
 double 
 Config<TTreeType>::getParam(Config<TTreeType>::ParamType param)
 {
-    if (param == this->mutationMean)
-        return 0.5 - (2.0/3.0 * this->getParam(this->wildMean));
+    if (param == this->E_mutationMean)
+        return 0.5 - (2.0/3.0 * this->getParam(this->E_wildMean));
     return std::get<0>(this->params[param]);
 }
 template<typename TTreeType>
 double 
 Config<TTreeType>::getParam(Config<TTreeType>::ParamType param) const
 {
-    if (param == this->mutationMean)
-        return 0.5 - (2.0/3.0 * this->getParam(this->wildMean));
+    if (param == this->E_mutationMean)
+        return 0.5 - (2.0/3.0 * this->getParam(this->E_wildMean));
     return std::get<0>(this->params[param]);
 }
 
@@ -544,42 +544,42 @@ Config<TTreeType>::resetParameters()
 {
     switch (this->getParamToOptimize()) 
     {
-        case(wildOverDis) :
+        case(E_wildOverDis) :
         {
-            this->setParam(wildOverDis, this->getTmpParam(wildOverDis));
+            this->setParam(E_wildOverDis, this->getTmpParam(E_wildOverDis));
             break;
         }
-        case(mutationOverDis) :
+        case(E_mutationOverDis) :
         {
-            this->setParam(mutationOverDis, this->getTmpParam(mutationOverDis));
+            this->setParam(E_mutationOverDis, this->getTmpParam(E_mutationOverDis));
             break;
         }
-        case(wildMean) :
+        case(E_wildMean) :
         {
-            this->setParam(wildMean, this->getTmpParam(wildMean));
+            this->setParam(E_wildMean, this->getTmpParam(E_wildMean));
             break;
         }
-        case(mu) :
+        case(E_mu) :
         {
-            this->setParam(mu, this->getTmpParam(mu));
+            this->setParam(E_mu, this->getTmpParam(E_mu));
             break;
         }
-        case(nu) :
+        case(E_nu) :
         {
-            this->setParam(nu, this->getTmpParam(nu));
+            this->setParam(E_nu, this->getTmpParam(E_nu));
             break;
         }
-        case(lambda) :
+        case(E_lambda) :
         {
-            this->setParam(lambda, this->getTmpParam(lambda));
+            this->setParam(E_lambda, this->getTmpParam(E_lambda));
             break;
         }
-        case(parallele) :
+        case(E_parallel) :
         {
-            this->setParam(parallele, this->getTmpParam(parallele));
+            this->setParam(E_parallel, this->getTmpParam(E_parallel));
             break;
         }
-        case(mutationMean) :
+        case(E_mutationMean) :
         {
             assert(false);
             break;
@@ -598,7 +598,7 @@ Config<TTreeType>::initMutInSampleCounter()
         this->mutInSampleCounter[i].resize(this->getCompleteData()[0].size());
         for (unsigned j = 0; j < this->mutInSampleCounter[i].size(); ++j)
         {
-            this->mutInSampleCounter[i][j].setMinusInfinity();
+            this->mutInSampleCounter[i][j] = AttachmentScore();
         }
     }
 }
@@ -655,14 +655,14 @@ Config<TTreeType>::printParameters(){
 
     std::cout << "num Samples:\t" << this->getNumSamples() << std::endl;
     std::cout << "total # mut:\t" << this->getCompleteData()[0].size() << "\tcurrently used:\t" << this->getNumMutations() << std::endl;
-    std::cout << "normal     - freq:    " << this->getParam(Config::wildMean) << " SD: " << this->getSDParam(Config::wildMean) << " count: " << this->getSDCountParam(Config::wildMean)  << " trails: " << this->getSDTrialsParam(Config::wildMean) << std::endl; 
-    std::cout << "normal     - overDis: " << this->getParam(Config::wildOverDis) << " SD: " << this->getSDParam(Config::wildOverDis) << " count: " << this->getSDCountParam(Config::wildOverDis) << " trails: " << this->getSDTrialsParam(Config::wildOverDis) << std::endl;    
-    std::cout << "normal     - alpha:   " << this->getParam(Config::wildOverDis) * this->getParam(Config::wildMean) << " beta: " << this->getParam(Config::wildOverDis) - this->getParam(Config::wildMean) * this->getParam(Config::wildOverDis) << std::endl;
-    std::cout << "mutation   - overDis: " << this->getParam(Config::mutationOverDis) << " SD: " << this->getSDParam(Config::mutationOverDis) << " count: " << this->getSDCountParam(Config::mutationOverDis) << " trails: " << this->getSDTrialsParam(Config::mutationOverDis) << std::endl;
-    std::cout << "mutation   - alpha: " << this->getParam(Config::mutationOverDis) * this->getParam(Config::mutationMean) << " beta: " << this->getParam(Config::mutationOverDis) - (0.5 -this->getParam(Config::wildMean) ) * this->getParam(Config::mutationOverDis) << std::endl;
-    std::cout << "drop: " << this->getParam(Config::mu) << " SD: " << this->getSDParam(Config::mu) << " count: " << this->getSDCountParam(Config::mu) << " trails: " << this->getSDTrialsParam(Config::mu) << std::endl;
-    std::cout << "zyg: " << this->getParam(Config::nu) << " SD: " << this->getSDParam(Config::nu) << " count: " << this->getSDCountParam(Config::nu) << " trails: " << this->getSDTrialsParam(Config::nu) << std::endl;
-    std::cout << "vio1: " << this->getParam(Config::lambda) << " SD: " << this->getSDParam(Config::lambda) << " count: " << this->getSDCountParam(Config::lambda) << " trails: " << this->getSDTrialsParam(Config::lambda) << std::endl;
+    std::cout << "normal     - freq:    " << this->getParam(Config::E_wildMean) << " SD: " << this->getSDParam(Config::E_wildMean) << " count: " << this->getSDCountParam(Config::E_wildMean)  << " trails: " << this->getSDTrialsParam(Config::E_wildMean) << std::endl;
+    std::cout << "normal     - overDis: " << this->getParam(Config::E_wildOverDis)  " SD: " << this->getSDParam(Config::E_wildOverDis) << " count: " << this->getSDCountParam(Config::E_wildOverDis) << " trails: " << this->getSDTrialsParam(Config::E_wildOverDis) << std::endl;
+    std::cout << "normla     - alpha:   " << this->getParam(Config::E_wildOverDis) * this->getParam(Config::E_wildMean) << " beta: " << this->getParam(Config::E_wildOverDis) - this->getParam(Config::E_wildMean) * this->getParam(Config::E_wildOverDis) << std::endl;
+    std::cout << "mutation   - overDis: " << this->getParam(Config::E_mutationOverDis) << " SD: " << this->getSDParam(Config::E_mutationOverDis) << " count: " << this->getSDCountParam(Config::E_mutationOverDis) << " trails: " << this->getSDTrialsParam(Config::E_mutationOverDis) << std::endl;
+    std::cout << "mutation   - alpha: " << this->getParam(Config::E_mutationOverDis) * this->getParam(Config::E_mutationMean) << " beta: " << this->getParam(Config::E_mutationOverDis) - (0.5 -this->getParam(Config::E_wildMean) ) * this->getParam(Config::E_mutationOverDis) << std::endl;
+    std::cout << "drop: " << this->getParam(Config::E_mu) << " SD: " << this->getSDParam(Config::E_mu) << " count: " << this->getSDCountParam(Config::E_mu) << " trails: " << this->getSDTrialsParam(Config::E_mu) << std::endl;
+    std::cout << "zyg: " << this->getParam(Config::E_nu) << " SD: " << this->getSDParam(Config::E_nu) << " count: " << this->getSDCountParam(Config::E_nu) << " trails: " << this->getSDTrialsParam(Config::E_nu) << std::endl;
+    std::cout << "vio1: " << this->getParam(Config::E_lambda) << " SD: " << this->getSDParam(Config::E_lambda) << " count: " << this->getSDCountParam(Config::E_lambda) << " trails: " << this->getSDTrialsParam(Config::E_lambda) << std::endl;
 };
 
 
@@ -873,12 +873,12 @@ writeParameters(Config<TTreeType> & config, std::string const & fileName)
 {
     std::ofstream outFile;
     outFile.open(fileName);
-	outFile << "background frequency:\t" << config.getParam(Config<TTreeType>::wildMean) << std::endl;
+	outFile << "background frequency:\t" << config.getParam(Config<TTreeType>::E_wildMean) << std::endl;
     std::array<double, 3> stats = getStats(config.paramsCounter.wildAlpha);
 	outFile << "wildAlpha:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.wildBeta);
 	outFile << "wildBeta:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
-	outFile << "average mutation frequency:\t" << config.getParam(Config<TTreeType>::mutationMean) << std::endl;
+	outFile << "average mutation frequency:\t" << config.getParam(Config<TTreeType>::E_mutationMean) << std::endl;
     stats = getStats(config.paramsCounter.mutAlpha);
 	outFile << "altAlpha:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.mutBeta);
@@ -889,6 +889,8 @@ writeParameters(Config<TTreeType> & config, std::string const & fileName)
 	outFile << "nu:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.lambda);
 	//outFile << "lambda:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    stats = getStats(config.paramsCounter.parallel);
+    //outFile << "parallel:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
 }
 
 #endif
