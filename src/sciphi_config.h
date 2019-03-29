@@ -367,6 +367,7 @@ Config<TTreeType>::updateParamsCounter()
     this->paramsCounter.mu.push_back(this->getParam(Config::E_mu));
     this->paramsCounter.nu.push_back(this->getParam(Config::E_nu));
     this->paramsCounter.lambda.push_back(this->getParam(Config::E_lambda));
+    this->paramsCounter.parallel.push_back(this->getParam(Config::E_parallel));
 }
 
 template<typename TTreeType>
