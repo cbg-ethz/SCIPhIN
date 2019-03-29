@@ -286,13 +286,17 @@ updateMutInSampleCounts(Config<SampleTree> & config)
             if (config.getTree()[i].sample != -1)
             {
                 // normalize probabilities
-                attachmentScores[i] -= scoreSum;
+                attachmentSumScores[i].hetScore() -= scoreSum.hetScore();
+                attachmentSumScores[i].homScore() -= scoreSum.homScore();
+                attachmentSumScores[i].lossWildScore() -= scoreSum.lossWildScore();
+                attachmentSumScores[i].lossAltScore() -= scoreSum.lossAltScore();
+                passDownAttachmentSumScores[i].paralleleScore() -= scoreSum.lcaRScore();
 
                 // compute final score
                 attachmentScores[i].finalScore() = addLogProb(addLogProb(addLogProb(
                         attachmentSumScores[i].hetScore() + logPHet,
                         attachmentSumScores[i].homScore() + logPHom),
-                        addLogProb(attachmentSumScores[i].lossWildScore(), attachmentSumScores[i].lossAltScore()) + logPLoss),
+                        addLogProbWeight(attachmentSumScores[i].lossWildScore(), attachmentSumScores[i].lossAltScore(), 0.5) + logPLoss),
                         passDownAttachmentSumScores[i].paralleleScore() + logPPara);
 
                 // update the counter
