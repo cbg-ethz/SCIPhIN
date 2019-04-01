@@ -258,7 +258,6 @@ updateMutInSampleCounts(Config<SampleTree> & config)
     // for all mutations
     for (size_t attachment = 0; attachment < config.getNumAttachments(); ++attachment) {
         // get the attachment scores
-        scoreSum = AttachmentScore();
         getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
 
         // traverse the attachment scores to the leaves
@@ -279,7 +278,7 @@ updateMutInSampleCounts(Config<SampleTree> & config)
         double logPHom = res[1] - res[4];
         double logPLoss = res[2] - res[4];
         double logPPara = res[3] - res[4];
-        
+
         // for all attachment positions
         for (unsigned i = 0; i < attachmentScores.size(); ++i)
         {
@@ -293,116 +292,27 @@ updateMutInSampleCounts(Config<SampleTree> & config)
                 passDownAttachmentSumScores[i].paralleleScore() -= scoreSum.lcaRScore();
 
                 // compute final score
-                attachmentScores[i].finalScore() = addLogProb(addLogProb(addLogProb(
-                        attachmentSumScores[i].hetScore() + logPHet,
-                        attachmentSumScores[i].homScore() + logPHom),
-                        addLogProbWeight(attachmentSumScores[i].lossWildScore(), attachmentSumScores[i].lossAltScore(), 0.5) + logPLoss),
-                        passDownAttachmentSumScores[i].paralleleScore() + logPPara);
+                attachmentSumScores[i].finalScore() =  attachmentSumScores[i].hetScore() + logPHet;
+                if (config.learnZygocity)
+                {
+                    attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(), attachmentSumScores[i].homScore() + logPHom);
+                }
+                if (config.computeLossScore)
+                {
+                    attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(),
+                                                                     addLogProbWeight(attachmentSumScores[i].lossWildScore(), attachmentSumScores[i].lossAltScore(), 0.5) + logPLoss);
+                }
+                if (config.computeParallelScore)
+                {
+                    attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(), passDownAttachmentSumScores[i].paralleleScore() + logPPara);
+                }
 
                 // update the counter
-                config.mutInSampleCounter[config.getTree()[i].sample][attachment].addInRealSpace(attachmentScores[i]);
+                config.mutInSampleCounter[config.getTree()[i].sample][attachment].addInRealSpace(attachmentSumScores[i]);
             }
         }
     }
 }
-
-
-/*
-// this function is in experimental phase
-inline
-void 
-updateMutInSampleCountsloss(Config<SampleTree> & config)
-{
-    Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
-    Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
-    Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum2;
-    for (size_t attachment = 0; attachment < config.getNumAttachments(); ++attachment)
-    {
-        scoreSum2.setMinusInfinity();
-        getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
-        
-        std::vector<double> lostScores;
-        lostScores.resize(attachmentScores.size(), -INFINITY);
-        double sumScoreReal = -INFINITY;
-        ComputeLostScoreDFSVisitor vis(config, config._tmpAttachmentScore, lostScores, sumScoreReal, attachment);
-        depth_first_search(config.getTree(), visitor(vis).root_vertex(num_vertices(config.getTree()) - 1));
-
-        scoreSum.setMinusInfinity();
-        PassScoreToChildrenBFSVisitor visBFS(config, attachmentScores, scoreSum, attachment);
-        breadth_first_search(config.getTree(), num_vertices(config.getTree()) - 1, visitor(visBFS));
-        
-        double nu = config.getParam(Config<SampleTree>::nu);
-        if (nu == 0)
-        {
-            nu += 1e-12;
-        }
-
-        double lambda = config.getParam(Config<SampleTree>::lambda);
-        if (lambda == 0)
-        {
-            lambda += 1e-12;
-        }
-
-        double logPHet = scoreSum.hetScore() + std::log(1.0 - nu) + std::log(1.0 - lambda) - std::log(config.getNumSamples() * 2 - 1);
-        double logPHom = scoreSum.homScore() + std::log(nu) - std::log(config.getNumSamples() -1);
-        double loglossWild = scoreSum.lossWildScore() + std::log(1.0 - nu) + std::log(lambda) + std::log(0.5) - std::log(config.numMutPlacements[0]);
-        double loglossHom = scoreSum.lossAltScore() + std::log(1.0 - nu) + std::log(lambda) + std::log(0.5) - std::log(config.numMutPlacements[0]);
-        double logPD = addLogProb(addLogProb(logPHet, logPHom), addLogProb(loglossWild, loglossHom));
-        logPHet -= logPD;
-        logPHom -= logPD;
-        loglossWild -= logPD;
-        loglossHom -= logPD;
-
-        for (unsigned i = 0; i < attachmentScores.size(); ++i)
-        {
-            if (config.getTree()[i].sample != -1)
-            {
-                // normalize probabilities
-                attachmentScores[i] -= scoreSum;
-                lostScores[i] -= scoreSum.lossWildScore();
-
-                // if a node is attached to the root directly there is no lost-score
-                if (lostScores[i] != -INFINITY)
-                {
-                    attachmentScores[i].lossWildScore() = subLogProb(attachmentScores[i].lossWildScore(), lostScores[i]);
-                    attachmentScores[i].finalScore() = addLogProb(
-                            addLogProb(attachmentScores[i].hetScore() + logPHet, attachmentScores[i].homScore() + logPHom), 
-                            addLogProb(attachmentScores[i].lossWildScore() + loglossWild,
-                                       attachmentScores[i].lossAltScore() + loglossHom)
-                            );
-                }
-                else
-                {
-                    attachmentScores[i].finalScore() = addLogProb(attachmentScores[i].hetScore() + logPHet, attachmentScores[i].homScore() + logPHom);
-                }
-
-                // recompute the scores for storing them
-                attachmentScores[i].hetScore() = attachmentScores[i].hetScore() + logPHet;
-                attachmentScores[i].homScore() = attachmentScores[i].homScore() + logPHom;
-                attachmentScores[i].lossWildScore() = attachmentScores[i].lossWildScore() + loglossWild;
-                attachmentScores[i].lossAltScore() = attachmentScores[i].lossAltScore() + loglossHom;
-
-                config.mutInSampleCounter[config.getTree()[i].sample][attachment].hetScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].hetScore(), attachmentScores[i].hetScore());
-                config.mutInSampleCounter[config.getTree()[i].sample][attachment].homScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].homScore(), attachmentScores[i].homScore());
-                if (attachmentScores[i].lossWildScore() != -INFINITY)
-                {
-                    config.mutInSampleCounter[config.getTree()[i].sample][attachment].lossWildScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].lossWildScore(), attachmentScores[i].lossWildScore());
-                }
-                if (attachmentScores[i].lossAltScore() != -INFINITY)
-                {
-                    config.mutInSampleCounter[config.getTree()[i].sample][attachment].lossAltScore() = addLogProb(
-                            config.mutInSampleCounter[config.getTree()[i].sample][attachment].lossAltScore(),
-                                                                                                                  attachmentScores[i].lossAltScore());
-                }
-                if (attachmentScores[i].finalScore() != -INFINITY)
-                {
-                    config.mutInSampleCounter[config.getTree()[i].sample][attachment].finalScore() = addLogProb(config.mutInSampleCounter[config.getTree()[i].sample][attachment].finalScore(), attachmentScores[i].finalScore());
-                }
-            }
-        }
-    }
-}
- */
 
 template <typename TTreeType>
 double

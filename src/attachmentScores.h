@@ -361,6 +361,7 @@ std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
     os << "lossAltRScore:    " << obj.lossAltRScore() << "\n";
     os << "lossWildScore:    " << obj.lossWildScore() << "\n";
     os << "lcaScore:         " << obj.lcaScore() << "\n";
+    os << "lcaRScore:         " << obj.lcaRScore() << "\n";
     os << "childHetSumScore: " << obj.childHetSumScore() << "\n";
     os << "lcaRScore:        " << obj.lcaRScore() << "\n";
     os << "numAltRPoss:      " << obj.numAltRPoss() << "\n";
