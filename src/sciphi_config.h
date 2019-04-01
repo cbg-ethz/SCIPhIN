@@ -663,7 +663,8 @@ Config<TTreeType>::printParameters(){
     std::cout << "mutation   - alpha: " << this->getParam(Config::E_mutationOverDis) * this->getParam(Config::E_mutationMean) << " beta: " << this->getParam(Config::E_mutationOverDis) - (0.5 -this->getParam(Config::E_wildMean) ) * this->getParam(Config::E_mutationOverDis) << std::endl;
     std::cout << "drop: " << this->getParam(Config::E_mu) << " SD: " << this->getSDParam(Config::E_mu) << " count: " << this->getSDCountParam(Config::E_mu) << " trails: " << this->getSDTrialsParam(Config::E_mu) << std::endl;
     std::cout << "zyg: " << this->getParam(Config::E_nu) << " SD: " << this->getSDParam(Config::E_nu) << " count: " << this->getSDCountParam(Config::E_nu) << " trails: " << this->getSDTrialsParam(Config::E_nu) << std::endl;
-    std::cout << "vio1: " << this->getParam(Config::E_lambda) << " SD: " << this->getSDParam(Config::E_lambda) << " count: " << this->getSDCountParam(Config::E_lambda) << " trails: " << this->getSDTrialsParam(Config::E_lambda) << std::endl;
+    std::cout << "loss: " << this->getParam(Config::E_lambda) << " SD: " << this->getSDParam(Config::E_lambda) << " count: " << this->getSDCountParam(Config::E_lambda) << " trails: " << this->getSDTrialsParam(Config::E_lambda) << std::endl;
+    std::cout << "para: " << this->getParam(Config::E_parallel) << " SD: " << this->getSDParam(Config::E_parallel) << " count: " << this->getSDCountParam(Config::E_parallel) << " trails: " << this->getSDTrialsParam(Config::E_parallel) << std::endl;
 };
 
 

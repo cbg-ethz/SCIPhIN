@@ -285,6 +285,9 @@ void writeNucInfo(Config<SampleTree> const & config, std::string const & dir)
     outFile << config.getParam(Config<SampleTree>::E_mutationOverDis) << "\t"<< config.getSDParam(Config<SampleTree>::E_mutationOverDis) << "\t" << config.getSDCountParam(Config<SampleTree>::E_mutationOverDis) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_mutationOverDis) << "\n";
     outFile << config.getParam(Config<SampleTree>::E_mu) << "\t"<< config.getSDParam(Config<SampleTree>::E_mu) << "\t" << config.getSDCountParam(Config<SampleTree>::E_mu) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_mu) << "\n";
     outFile << config.getParam(Config<SampleTree>::E_nu) << "\t"<< config.getSDParam(Config<SampleTree>::E_nu) << "\t" << config.getSDCountParam(Config<SampleTree>::E_nu) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_nu) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_lambda) << "\t"<< config.getSDParam(Config<SampleTree>::E_lambda) << "\t" << config.getSDCountParam(Config<SampleTree>::E_lambda) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_lambda) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_parallel) << "\t"<< config.getSDParam(Config<SampleTree>::E_parallel) << "\t" << config.getSDCountParam(Config<SampleTree>::E_parallel) << "\t" << config.getSDTrialsParam(Config<SampleTree>::E_parallel) << "\n";
+
 
     outFile << "=mutations=" << "\n";
     for (unsigned i = 0; i < config.indexToPosition.size(); ++i)
