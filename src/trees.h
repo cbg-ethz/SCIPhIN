@@ -457,15 +457,15 @@ public:
     }
 };
 
-unsigned getNumPlacements(Config<SampleTree> const & config)
-{
-    static std::vector<unsigned> numPlacements; // static because the vector should be re-used
-    numPlacements.resize(num_vertices(config.getTree()), 0);
-    ComputeNumPlacementsDFSVisitor vis(config, numPlacements);
-    depth_first_search(config.getTree(), visitor(vis).root_vertex(num_vertices(config.getTree()) - 1));
-   
-    return numPlacements.back();
-}
+//unsigned getNumPlacements(Config<SampleTree> const & config)
+//{
+//    static std::vector<unsigned> numPlacements; // static because the vector should be re-used
+//    numPlacements.resize(num_vertices(config.getTree()), 0);
+//    ComputeNumPlacementsDFSVisitor vis(config, numPlacements);
+//    depth_first_search(config.getTree(), visitor(vis).root_vertex(num_vertices(config.getTree()) - 1));
+//
+//    return numPlacements.back();
+//}
 
 /*
 std::vector<unsigned> getNumPlacements(Config<SampleTree> const & config)

@@ -89,8 +89,12 @@ public:
         // compute scores for leaf nodes
         if (g[v].sample != -1)
         {
-            attachmentScores.computeLogHetScoreLeaf(v, this->config.getLogScores().wtScore(g[v].sample, gene), this->config.getLogScores().hetScore(g[v].sample, gene));
-            attachmentScores.computeLogHomScoreLeaf(v, this->config.getLogScores().wtScore(g[v].sample, gene), this->config.getLogScores().homScore(g[v].sample, gene));
+            attachmentScores.computeLogHetScoreLeaf(v,
+                    this->config.getLogScores().wtScore(g[v].sample, gene),
+                    this->config.getLogScores().hetScore(g[v].sample, gene));
+            attachmentScores.computeLogHomScoreLeaf(v,
+                    this->config.getLogScores().wtScore(g[v].sample, gene),
+                    this->config.getLogScores().homScore(g[v].sample, gene));
 
             // add hetero score to overall tree score
             scoreSum.hetScore() = addLogProb(scoreSum.hetScore(), attachmentScores[v].hetScore());
@@ -104,22 +108,11 @@ public:
 
         if (config.computeLossScore) // experimental
         {
-
-            unsigned leftNodeId = target(*it, g);
-            unsigned rightNodeId = target(*(it + 1), g);
-            //bool innerNodeLeft = g[leftNodeId].sample == -1;
-            //bool innerNodeRight = g[rightNodeId].sample == -1;
             attachmentScores.computeLogLossScoreInnerNode(g, v);
+        }
+        if (config.computeParallelScore) // experimental
+        {
             attachmentScores.computeLogLcaScoreInnerNode(g,v);
-
-            /*
-            if(innerNodeLeft || innerNodeRight)
-            {
-                scoreSum.lossAltRScore() = addLogProb(scoreSum.lossAltScore(), attachmentScores[v].lossAltScore());
-                scoreSum.lossWildScore() = addLogProb
-                        (scoreSum.lossWildScore(), attachmentScores[v].lossWildScore());
-            }
-             */
         }
         scoreSum.addInRealSpace(attachmentScores[v]);
         return ;

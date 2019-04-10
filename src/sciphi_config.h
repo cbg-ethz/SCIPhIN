@@ -277,7 +277,7 @@ class Config{
     bool                                        learnZygocity;
     bool                                        computeLossScore;
     bool                                        computeParallelScore;
-    std::array<unsigned, 2>                     numMutPlacements;
+   // std::array<unsigned, 2>                     numMutPlacements;
     bool                                        estimateSeqErrorRate;
     std::array<double, 2>                       clamPrior;
     double                                      meanFilter;      
@@ -333,7 +333,7 @@ class Config{
         learnZygocity(false),
         computeLossScore(false),
         computeParallelScore(false),
-        numMutPlacements({{0,0}}),
+        //numMutPlacements({{0,0}}),
         estimateSeqErrorRate(true),
         clamPrior({{200,10000}}),
         meanFilter(0.25),

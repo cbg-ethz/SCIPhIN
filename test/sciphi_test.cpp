@@ -12,8 +12,7 @@
 #include "src/readData.h"
 
 
-void initTree1(Config<SampleTree> & config)
-{
+void initTree1(Config<SampleTree> &config) {
     /*
     *                                          9
     *                                          |
@@ -85,11 +84,9 @@ void initTree1(Config<SampleTree> & config)
     config._tmpAttachmentScore.resize(9);
     config.setParam(Config<SampleTree>::E_nu, 0.2);
     config.setParam(Config<SampleTree>::E_lambda, 0.1);
-    config.numMutPlacements[0] = getNumPlacements(config);
 }
 
-void initTree2(Config<SampleTree> & config)
-{
+void initTree2(Config<SampleTree> &config) {
     /*
      *                                          15
      *                                          |
@@ -186,11 +183,92 @@ void initTree2(Config<SampleTree> & config)
     config.data.resize(8);
     config.data[0].resize(1);
     config._tmpAttachmentScore.resize(15);
-
-    config.computeLossScore = true;
     config.setParam(Config<SampleTree>::E_nu, 0.2);
     config.setParam(Config<SampleTree>::E_lambda, 0.1);
 }
+
+void initTree3(Config<SampleTree> &config) {
+    /*
+    *                                          11
+    *                                          |
+    *                                          0
+    *                           ___________________________
+    *                          |                           |
+    *                          1                           2
+    *               _______________________           ____________
+    *              |                       |         |            |
+    *              3                       8         9            10
+    *       _______________                0.4       0.5          0.6
+    *      |               |               0.6       0.4          0.3
+    *      4               7               0.2       0.1          0.7
+    *   _______            0.3
+    *  |       |           0.7
+    *  5       6           0.3
+    *  0.1     0.2
+    *  0.9     0.8
+    *  0.5     0.4
+    */
+    config.setNumSamples(8);
+
+    add_edge(0, 1, config.getTree());
+    config.getTree()[0].sample = -1;
+    config.getTree()[1].sample = -1;
+    add_edge(0, 2, config.getTree());
+    config.getTree()[2].sample = -1;
+    add_edge(1, 3, config.getTree());
+    config.getTree()[3].sample = -1;
+    add_edge(1, 8, config.getTree());
+    config.getTree()[8].sample = 3;
+    add_edge(3, 4, config.getTree());
+    config.getTree()[4].sample = -1;
+    add_edge(3, 7, config.getTree());
+    config.getTree()[7].sample = 2;
+
+    add_edge(4, 5, config.getTree());
+    config.getTree()[5].sample = 0;
+    add_edge(4, 6, config.getTree());
+    config.getTree()[6].sample = 1;
+    add_edge(2, 9, config.getTree());
+    config.getTree()[9].sample = 4;
+    add_edge(2, 10, config.getTree());
+    config.getTree()[10].sample = 5;
+
+    add_edge(11, 0, config.getTree());
+
+    std::get<0>(config.logScores).resizeNumCells(6);
+    std::get<0>(config.logScores).resizeNumMuts(1);
+    std::get<0>(config.logScores).wtScore(0, 0) = std::log(0.1);
+    std::get<0>(config.logScores).hetScore(0, 0) = std::log(0.9);
+    std::get<0>(config.logScores).homScore(0, 0) = std::log(0.5);
+
+    std::get<0>(config.logScores).wtScore(1, 0) = std::log(0.2);
+    std::get<0>(config.logScores).hetScore(1, 0) = std::log(0.8);
+    std::get<0>(config.logScores).homScore(1, 0) = std::log(0.4);
+
+    std::get<0>(config.logScores).wtScore(2, 0) = std::log(0.3);
+    std::get<0>(config.logScores).hetScore(2, 0) = std::log(0.7);
+    std::get<0>(config.logScores).homScore(2, 0) = std::log(0.3);
+
+    std::get<0>(config.logScores).wtScore(3, 0) = std::log(0.4);
+    std::get<0>(config.logScores).hetScore(3, 0) = std::log(0.6);
+    std::get<0>(config.logScores).homScore(3, 0) = std::log(0.2);
+
+    std::get<0>(config.logScores).wtScore(4, 0) = std::log(0.5);
+    std::get<0>(config.logScores).hetScore(4, 0) = std::log(0.4);
+    std::get<0>(config.logScores).homScore(4, 0) = std::log(0.1);
+
+    std::get<0>(config.logScores).wtScore(5, 0) = std::log(0.6);
+    std::get<0>(config.logScores).hetScore(5, 0) = std::log(0.3);
+    std::get<0>(config.logScores).homScore(5, 0) = std::log(0.7);
+
+    config.noiseScore = -1000;
+    config.data.resize(6);
+    config.data[0].resize(1);
+    config._tmpAttachmentScore.resize(11);
+    config.setParam(Config<SampleTree>::E_nu, 0.2);
+    config.setParam(Config<SampleTree>::E_lambda, 0.1);
+}
+
 
 BOOST_AUTO_TEST_CASE(adjuste_coefficient) {
     BOOST_CHECK(adjusteCoefficient(0.6) == 0.6);
@@ -424,6 +502,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_get_num_placements) {
         Config<SampleTree> config;
         initTree1(config);
         config.computeLossScore = true;
+        config.computeParallelScore = true;
         scoreTree(config);
 
         BOOST_CHECK(config._tmpAttachmentScore.numAltRPoss(7) == 0);
@@ -431,12 +510,6 @@ BOOST_AUTO_TEST_CASE(sample_tree_get_num_placements) {
         BOOST_CHECK(config._tmpAttachmentScore.numAltRPoss(3) == 0);
         BOOST_CHECK(config._tmpAttachmentScore.numAltRPoss(1) == 1);
         BOOST_CHECK(config._tmpAttachmentScore.numAltRPoss(0) == 2);
-
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(7) == 0);
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(5) == 0);
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(3) == 1);
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(1) == 2);
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(0) == 3);
 
         BOOST_CHECK(config._tmpAttachmentScore.numInnerNodes(7) == 0);
         BOOST_CHECK(config._tmpAttachmentScore.numInnerNodes(5) == 0);
@@ -460,6 +533,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_get_num_placements) {
         Config<SampleTree> config;
         initTree2(config);
         config.computeLossScore = true;
+        config.computeParallelScore = true;
         scoreTree(config);
 
         BOOST_CHECK(config._tmpAttachmentScore.numAltRPoss(7) == 0);
@@ -467,12 +541,6 @@ BOOST_AUTO_TEST_CASE(sample_tree_get_num_placements) {
         BOOST_CHECK(config._tmpAttachmentScore.numAltRPoss(3) == 0);
         BOOST_CHECK(config._tmpAttachmentScore.numAltRPoss(1) == 2);
         BOOST_CHECK(config._tmpAttachmentScore.numAltRPoss(0) == 4);
-
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(7) == 0);
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(5) == 0);
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(3) == 2);
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(1) == 4);
-        BOOST_CHECK(config._tmpAttachmentScore.numAltPoss(0) == 6);
 
         BOOST_CHECK(config._tmpAttachmentScore.numInnerNodes(7) == 0);
         BOOST_CHECK(config._tmpAttachmentScore.numInnerNodes(5) == 0);
@@ -492,64 +560,6 @@ BOOST_AUTO_TEST_CASE(sample_tree_get_num_placements) {
         BOOST_CHECK(config._tmpAttachmentScore.numLcaRPoss(1) == 0);
         BOOST_CHECK(config._tmpAttachmentScore.numLcaRPoss(0) == 2);
 
-    }
-    {
-        /*
-        *                                          13
-        *                                          |
-        *                                          0
-        *                           ___________________________
-        *                          |                           |
-        *                          1                           2
-        *               _______________________             _______
-        *              |                       |           |       |
-        *              3                       4           11      12
-        *       _______________
-        *      |               |
-        *      5               6
-        *   _______         _______
-        *  |       |       |       |
-        *  7       8       9       10
-        */
-
-        Config<SampleTree> config;
-
-        add_edge(0, 1, config.getTree());
-        config.getTree()[0].sample = -1;
-        config.getTree()[1].sample = -1;
-        add_edge(0, 2, config.getTree());
-        config.getTree()[2].sample = -1;
-        add_edge(1, 3, config.getTree());
-        config.getTree()[3].sample = -1;
-        add_edge(1, 4, config.getTree());
-        config.getTree()[4].sample = -1;
-        add_edge(3, 5, config.getTree());
-        config.getTree()[5].sample = -1;
-        add_edge(3, 6, config.getTree());
-        config.getTree()[6].sample = -1;
-
-        add_edge(5, 7, config.getTree());
-        config.getTree()[7].sample = 0;
-        add_edge(5, 8, config.getTree());
-        config.getTree()[8].sample = 1;
-
-        add_edge(6, 9, config.getTree());
-        config.getTree()[9].sample = 2;
-        add_edge(6, 10, config.getTree());
-        config.getTree()[10].sample = 3;
-
-        config.getTree()[4].sample = 4;
-
-        add_edge(2, 11, config.getTree());
-        config.getTree()[11].sample = 5;
-        add_edge(2, 12, config.getTree());
-        config.getTree()[12].sample = 6;
-
-        add_edge(13, 0, config.getTree());
-
-
-        BOOST_CHECK_MESSAGE(getNumPlacements(config) == 5,
-                            "getNumPlacements(config) = " << getNumPlacements(config) << " != 5");
     }
 }
 
@@ -577,7 +587,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_get_all_attachment_scores) {
         config.getTree()[0].sample = -1;
         config.getTree()[1].sample = -1;
         add_edge(0, 2, config.getTree());
-        config.getTree()[2].sample =  2;
+        config.getTree()[2].sample = 2;
         add_edge(1, 3, config.getTree());
         config.getTree()[3].sample = 0;
         add_edge(1, 4, config.getTree());
@@ -607,21 +617,22 @@ BOOST_AUTO_TEST_CASE(sample_tree_get_all_attachment_scores) {
         config.computeLossScore = false;
         config.setParam(Config<SampleTree>::E_nu, 0);
         config.setParam(Config<SampleTree>::E_lambda, 0);
-        config.numMutPlacements[0] = getNumPlacements(config);
 
         scoreTree(config);
 
         double result = std::log(0.9 * 0.2 * 0.3);
-        BOOST_CHECK_MESSAGE(std::abs(std::log(std::exp(config._tmpAttachmentScore.hetScore(3)) * 0.1 * 0.2 * 0.3) - result)
-                            <= std::numeric_limits<double>::epsilon(),
-                            std::log(std::exp(config._tmpAttachmentScore.hetScore(3)) * 0.1 * 0.2 * 0.3)
-                                    << " != " << result);
+        BOOST_CHECK_MESSAGE(
+                std::abs(std::log(std::exp(config._tmpAttachmentScore.hetScore(3)) * 0.1 * 0.2 * 0.3) - result)
+                <= std::numeric_limits<double>::epsilon(),
+                std::log(std::exp(config._tmpAttachmentScore.hetScore(3)) * 0.1 * 0.2 * 0.3)
+                        << " != " << result);
 
         result = std::log(0.9 * 0.8 * 0.7);
-        BOOST_CHECK_MESSAGE(std::abs(std::log(std::exp(config._tmpAttachmentScore.hetScore(0)) * 0.1 * 0.2 * 0.3) - result)
-                            <= std::numeric_limits<double>::epsilon(),
-                            std::log(std::exp(config._tmpAttachmentScore.hetScore(0)) * 0.1 * 0.2 * 0.3)
-                                    << " != " << result);
+        BOOST_CHECK_MESSAGE(
+                std::abs(std::log(std::exp(config._tmpAttachmentScore.hetScore(0)) * 0.1 * 0.2 * 0.3) - result)
+                <= std::numeric_limits<double>::epsilon(),
+                std::log(std::exp(config._tmpAttachmentScore.hetScore(0)) * 0.1 * 0.2 * 0.3)
+                        << " != " << result);
 
 
         result = std::log(0.9 * 0.2 * 0.3 + 0.1 * 0.8 * 0.3 + 0.1 * 0.2 * 0.7 + 0.9 * 0.8 * 0.3 + 0.9 * 0.8 * 0.7);
@@ -641,8 +652,164 @@ BOOST_AUTO_TEST_CASE(sample_tree_get_all_attachment_scores) {
 
 }
 
-BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lar_1)
-{
+BOOST_AUTO_TEST_CASE(sample_tree_compute_score_het_3) {
+    Config<SampleTree> config;
+    initTree3(config);
+    scoreTree(config);
+
+    double result = std::log(0.9) - std::log(0.1);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.hetScore(5) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result += std::log(0.8) - std::log(0.2);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.hetScore(4) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result += std::log(0.7) - std::log(0.3);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.hetScore(3) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result += std::log(0.6) - std::log(0.4);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.hetScore(1) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result += (std::log(0.4) - std::log(0.5)
+               + std::log(0.3) - std::log(0.6));
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.hetScore(0) - result)
+                <= 100 * std::numeric_limits<double>::epsilon());
+}
+
+BOOST_AUTO_TEST_CASE(sample_tree_compute_score_hom_3) {
+    Config<SampleTree> config;
+    initTree3(config);
+    scoreTree(config);
+
+    double result = std::log(0.5) - std::log(0.1);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.homScore(5) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result += std::log(0.4) - std::log(0.2);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.homScore(4) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result += std::log(0.3) - std::log(0.3);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.homScore(3) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result += std::log(0.2) - std::log(0.4);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.homScore(1) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result += (std::log(0.1) - std::log(0.5)
+               + std::log(0.7) - std::log(0.6));
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.homScore(0) - result)
+                <= 100 * std::numeric_limits<double>::epsilon());
+}
+
+BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossR_3) {
+    Config<SampleTree> config;
+    initTree3(config);
+    config.computeLossScore = true;
+    scoreTree(config);
+
+    BOOST_CHECK(config._tmpAttachmentScore.lossWildScore(5) == -INFINITY);
+    BOOST_CHECK(config._tmpAttachmentScore.lossWildScore(4) == -INFINITY);
+
+    double result = std::log(0.5) - std::log(0.1) +
+                    std::log(0.4) - std::log(0.2) +
+                    std::log(0.7) - std::log(0.3);
+    BOOST_CHECK(config._tmpAttachmentScore.lossWildScore(3) == result);
+
+    result = addLogProb(std::log(0.5) - std::log(0.1) +
+                        std::log(0.4) - std::log(0.2) +
+                        std::log(0.7) - std::log(0.3) +
+                        std::log(0.6) - std::log(0.4),
+                        std::log(0.5) - std::log(0.1) +
+                        std::log(0.4) - std::log(0.2) +
+                        std::log(0.3) - std::log(0.3) +
+                        std::log(0.6) - std::log(0.4));
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.lossWildScore(1) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result = addLogProb(addLogProb(addLogProb(
+            std::log(0.5) - std::log(0.1) +
+            std::log(0.4) - std::log(0.2) +
+            std::log(0.7) - std::log(0.3) +
+            std::log(0.6) - std::log(0.4) +
+            std::log(0.4) - std::log(0.5) +
+            std::log(0.3) - std::log(0.6),
+            std::log(0.5) - std::log(0.1) +
+            std::log(0.4) - std::log(0.2) +
+            std::log(0.3) - std::log(0.3) +
+            std::log(0.6) - std::log(0.4) +
+            std::log(0.4) - std::log(0.5) +
+            std::log(0.3) - std::log(0.6)),
+            std::log(0.5) - std::log(0.1) +
+            std::log(0.4) - std::log(0.2) +
+            std::log(0.3) - std::log(0.3) +
+            std::log(0.2) - std::log(0.4) +
+            std::log(0.4) - std::log(0.5) +
+            std::log(0.3) - std::log(0.6)),
+            std::log(0.9) - std::log(0.1) +
+            std::log(0.8) - std::log(0.2) +
+            std::log(0.7) - std::log(0.3) +
+            std::log(0.6) - std::log(0.4) +
+            std::log(0.1) - std::log(0.5) +
+            std::log(0.7) - std::log(0.6));
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.lossWildScore(0) - result)
+                <= 100 * std::numeric_limits<double>::epsilon());
+}
+
+BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossA_3) {
+    Config<SampleTree> config;
+    initTree3(config);
+    config.computeLossScore = true;
+    scoreTree(config);
+
+    BOOST_CHECK(config._tmpAttachmentScore.lossAltRScore(5) == -INFINITY);
+    BOOST_CHECK(config._tmpAttachmentScore.lossAltRScore(4) == -INFINITY);
+    BOOST_CHECK(config._tmpAttachmentScore.lossAltRScore(3) == -INFINITY);
+
+    double result = std::log(0.7) - std::log(0.3) +
+                        std::log(0.6) - std::log(0.4);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.lossAltRScore(1) - result)
+                <= 10 * std::numeric_limits<double>::epsilon());
+
+    result = addLogProb(
+            std::log(0.7) - std::log(0.3) +
+            std::log(0.6) - std::log(0.4) +
+            std::log(0.4) - std::log(0.5) +
+            std::log(0.3) - std::log(0.6),
+            std::log(0.6) - std::log(0.4) +
+            std::log(0.4) - std::log(0.5) +
+            std::log(0.3) - std::log(0.6));
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.lossAltRScore(0) - result)
+                <= 100 * std::numeric_limits<double>::epsilon());
+}
+
+BOOST_AUTO_TEST_CASE(sample_tree_compute_score_parallel_3) {
+    Config<SampleTree> config;
+    initTree3(config);
+    config.computeLossScore = true;
+    config.computeParallelScore = true;
+    scoreTree(config);
+
+    BOOST_CHECK(config._tmpAttachmentScore.lcaRScore(5) == -INFINITY);
+    BOOST_CHECK(config._tmpAttachmentScore.lcaRScore(4) == -INFINITY);
+    BOOST_CHECK(config._tmpAttachmentScore.lcaRScore(3) == -INFINITY);
+    BOOST_CHECK(config._tmpAttachmentScore.lcaRScore(1) == -INFINITY);
+
+    double result =
+            std::log(0.9) - std::log(0.1) +
+            std::log(0.8) - std::log(0.2) +
+            std::log(0.4) - std::log(0.5) +
+            std::log(0.3) - std::log(0.6);
+    BOOST_CHECK(std::abs(config._tmpAttachmentScore.lcaRScore(0) - result)
+                <= 100 * std::numeric_limits<double>::epsilon());
+}
+
+
+BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lar_1) {
     Config<SampleTree> config;
     initTree1(config);
     config.computeLossScore = true;
@@ -674,9 +841,9 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lar_1)
                                 << config._tmpAttachmentScore.lossAltRScore(3));
 
     double result = std::log(0.1) - std::log(0.1)
-                  + std::log(0.2) - std::log(0.2)
-                  + std::log(0.7) - std::log(0.3)
-                  + std::log(0.6) - std::log(0.4);
+                    + std::log(0.2) - std::log(0.2)
+                    + std::log(0.7) - std::log(0.3)
+                    + std::log(0.6) - std::log(0.4);
 
     BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.lossAltRScore(1) - result)
                         <= 10 * std::numeric_limits<double>::epsilon(),
@@ -684,10 +851,10 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lar_1)
                                 << " != " << result);
 
     double los5 = std::log(0.1) - std::log(0.1)
-           + std::log(0.2) - std::log(0.2)
-           + std::log(0.7) - std::log(0.3)
-           + std::log(0.6) - std::log(0.4)
-           + std::log(0.5) - std::log(0.6);
+                  + std::log(0.2) - std::log(0.2)
+                  + std::log(0.7) - std::log(0.3)
+                  + std::log(0.6) - std::log(0.4)
+                  + std::log(0.5) - std::log(0.6);
 
     double los3 = std::log(0.1) - std::log(0.1)
                   + std::log(0.2) - std::log(0.2)
@@ -703,14 +870,13 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lar_1)
                                 << " != " << result);
 }
 
-BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNode_1)
-{
+BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNode_1) {
     Config<SampleTree> config;
     initTree1(config);
     config.computeLossScore = true;
     scoreTree(config);
 
-    Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
     attachmentSumScores.resize(attachmentScores.size());
     static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
@@ -721,12 +887,12 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNode_1)
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
     scoreSum = AttachmentScore();
     PassScoreToChildrenBFSVisitor visBFS(config,
-            attachmentScores,
-            attachmentSumScores,
-            passDownAttachmentScores,
-            passDownAttachmentSumScores,
-            scoreSum,
-            0);
+                                         attachmentScores,
+                                         attachmentSumScores,
+                                         passDownAttachmentScores,
+                                         passDownAttachmentSumScores,
+                                         scoreSum,
+                                         0);
     breadth_first_search(config.getTree(), num_vertices(config.getTree()) - 1, visitor(visBFS));
 
     // test the case where the mutation is lost
@@ -757,10 +923,10 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNode_1)
                         passDownAttachmentScores.lossAltInCurrentNodeScore(1)
                                 << " != " << result);
     double gain0 = std::log(0.1) - std::log(0.1)
-             + std::log(0.2) - std::log(0.2)
-             + std::log(0.3) - std::log(0.3)
-             + std::log(0.6) - std::log(0.4)
-             + std::log(0.5) - std::log(0.6);
+                   + std::log(0.2) - std::log(0.2)
+                   + std::log(0.3) - std::log(0.3)
+                   + std::log(0.6) - std::log(0.4)
+                   + std::log(0.5) - std::log(0.6);
 
     double gain1 = std::log(0.1) - std::log(0.1)
                    + std::log(0.2) - std::log(0.2)
@@ -775,21 +941,21 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNode_1)
                                 << " != " << result);
 
     gain0 = std::log(0.1) - std::log(0.1)
-                   + std::log(0.2) - std::log(0.2)
-                   + std::log(0.7) - std::log(0.3)
-                   + std::log(0.6) - std::log(0.4)
-                   + std::log(0.5) - std::log(0.6);
+            + std::log(0.2) - std::log(0.2)
+            + std::log(0.7) - std::log(0.3)
+            + std::log(0.6) - std::log(0.4)
+            + std::log(0.5) - std::log(0.6);
 
     gain1 = std::log(0.1) - std::log(0.1)
-                   + std::log(0.2) - std::log(0.2)
-                   + std::log(0.7) - std::log(0.3)
-                   + std::log(0.6) - std::log(0.4);
+            + std::log(0.2) - std::log(0.2)
+            + std::log(0.7) - std::log(0.3)
+            + std::log(0.6) - std::log(0.4);
 
     result = addLogProb(gain0, gain1);
 
     double gain3 = std::log(0.1) - std::log(0.1)
-             + std::log(0.2) - std::log(0.2)
-             + std::log(0.7) - std::log(0.3);
+                   + std::log(0.2) - std::log(0.2)
+                   + std::log(0.7) - std::log(0.3);
 
     result = addLogProb(result, gain3);
 
@@ -799,14 +965,13 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNode_1)
                                 << " != " << result);
 }
 
-BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNodeR_1)
-{
+BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNodeR_1) {
     Config<SampleTree> config;
     initTree1(config);
     config.computeLossScore = true;
     scoreTree(config);
 
-    Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
     attachmentSumScores.resize(attachmentScores.size());
     static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
@@ -878,14 +1043,13 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score_lossInCurrrentNodeR_1)
                                 << " != " << result);
 }
 
-BOOST_AUTO_TEST_CASE(sample_tree_het_prob_1)
-{
+BOOST_AUTO_TEST_CASE(sample_tree_het_prob_1) {
     Config<SampleTree> config;
     initTree1(config);
     config.computeLossScore = true;
     scoreTree(config);
 
-    Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
     attachmentSumScores.resize(attachmentScores.size());
     static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
@@ -919,10 +1083,10 @@ BOOST_AUTO_TEST_CASE(sample_tree_het_prob_1)
                                 << " != " << result);
 
     double allBut2 = std::log(0.9) - std::log(0.1)
-                        + std::log(0.8) - std::log(0.2)
-                        + std::log(0.7) - std::log(0.3)
-                        + std::log(0.6) - std::log(0.4)
-                        + std::log(0.6) - std::log(0.6);
+                     + std::log(0.8) - std::log(0.2)
+                     + std::log(0.7) - std::log(0.3)
+                     + std::log(0.6) - std::log(0.4)
+                     + std::log(0.6) - std::log(0.6);
 
     result = addLogProb(allMutated, allBut2);
     result = addLogProb(result, std::log(0.6) - std::log(0.4));
@@ -933,22 +1097,22 @@ BOOST_AUTO_TEST_CASE(sample_tree_het_prob_1)
                                 << " != " << result);
 
     double allBut2_4 = std::log(0.9) - std::log(0.1)
-                     + std::log(0.8) - std::log(0.2)
-                     + std::log(0.7) - std::log(0.3)
-                     + std::log(0.4) - std::log(0.4)
-                     + std::log(0.6) - std::log(0.6);
-
-    double allBut2_4_6 = std::log(0.9) - std::log(0.1)
                        + std::log(0.8) - std::log(0.2)
-                       + std::log(0.3) - std::log(0.3)
+                       + std::log(0.7) - std::log(0.3)
                        + std::log(0.4) - std::log(0.4)
                        + std::log(0.6) - std::log(0.6);
 
-    double allBut2_4_6_8 = std::log(0.9) - std::log(0.1)
-                         + std::log(0.2) - std::log(0.2)
+    double allBut2_4_6 = std::log(0.9) - std::log(0.1)
+                         + std::log(0.8) - std::log(0.2)
                          + std::log(0.3) - std::log(0.3)
                          + std::log(0.4) - std::log(0.4)
                          + std::log(0.6) - std::log(0.6);
+
+    double allBut2_4_6_8 = std::log(0.9) - std::log(0.1)
+                           + std::log(0.2) - std::log(0.2)
+                           + std::log(0.3) - std::log(0.3)
+                           + std::log(0.4) - std::log(0.4)
+                           + std::log(0.6) - std::log(0.6);
 
     result = addLogProb(allMutated, allBut2);
     result = addLogProb(result, allBut2_4);
@@ -967,7 +1131,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_hom_prob_1) {
     config.computeLossScore = true;
     scoreTree(config);
 
-    Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
     attachmentSumScores.resize(attachmentScores.size());
     static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
@@ -1047,7 +1211,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_lossAltR_prob_1) {
     config.computeLossScore = true;
     scoreTree(config);
 
-    Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
     attachmentSumScores.resize(attachmentScores.size());
     static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
@@ -1114,7 +1278,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_lossWild_prob_1) {
     config.computeLossScore = true;
     scoreTree(config);
 
-    Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
     attachmentSumScores.resize(attachmentScores.size());
     static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
@@ -1203,13 +1367,14 @@ BOOST_AUTO_TEST_CASE(sample_tree_lossWild_prob_1) {
                                 << " != " << result);
 }
 
-BOOST_AUTO_TEST_CASE(sample_tree_lcaR_prob_1) {
+BOOST_AUTO_TEST_CASE(sample_tree_lcaR_prob_2) {
     Config<SampleTree> config;
     initTree2(config);
     config.computeLossScore = true;
+    config.computeParallelScore = true;
     scoreTree(config);
 
-    Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
     attachmentSumScores.resize(attachmentScores.size());
     static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
@@ -1232,30 +1397,32 @@ BOOST_AUTO_TEST_CASE(sample_tree_lcaR_prob_1) {
     BOOST_CHECK(passDownAttachmentSumScores[1].sibNodeScore() == config._tmpAttachmentScore[2].hetScore());
     BOOST_CHECK(passDownAttachmentSumScores[2].sibNodeScore() == config._tmpAttachmentScore[1].hetSumScore());
     BOOST_CHECK(passDownAttachmentSumScores[3].sibNodeScore() ==
-           addLogProb(config._tmpAttachmentScore[2].hetScore(),config._tmpAttachmentScore[4].hetScore()));
+                addLogProb(config._tmpAttachmentScore[2].hetScore(), config._tmpAttachmentScore[4].hetScore()));
     BOOST_CHECK(passDownAttachmentSumScores[4].sibNodeScore() ==
-                addLogProb(config._tmpAttachmentScore[2].hetScore(),config._tmpAttachmentScore[3].hetSumScore()));
+                addLogProb(config._tmpAttachmentScore[2].hetScore(), config._tmpAttachmentScore[3].hetSumScore()));
     BOOST_CHECK(std::abs(passDownAttachmentSumScores[5].sibNodeScore() -
-                addLogProb(config._tmpAttachmentScore[2].hetScore(),
-                        addLogProb(config._tmpAttachmentScore[4].hetScore(),
-                        config._tmpAttachmentScore[6].hetScore()))) < 10.0 * std::numeric_limits<double>::epsilon());
+                         addLogProb(config._tmpAttachmentScore[2].hetScore(),
+                                    addLogProb(config._tmpAttachmentScore[4].hetScore(),
+                                               config._tmpAttachmentScore[6].hetScore()))) <
+                10.0 * std::numeric_limits<double>::epsilon());
     BOOST_CHECK(std::abs(passDownAttachmentSumScores[6].sibNodeScore() -
                          addLogProb(config._tmpAttachmentScore[2].hetScore(),
                                     addLogProb(config._tmpAttachmentScore[4].hetScore(),
-                                               config._tmpAttachmentScore[5].hetScore()))) < 10.0 * std::numeric_limits<double>::epsilon());
+                                               config._tmpAttachmentScore[5].hetScore()))) <
+                10.0 * std::numeric_limits<double>::epsilon());
 
     BOOST_CHECK(std::abs(passDownAttachmentSumScores[2].paralleleScore() - attachmentScores[0].lcaRScore()
-    ) <10.0 * std::numeric_limits<double>::epsilon());
+    ) < 10.0 * std::numeric_limits<double>::epsilon());
     BOOST_CHECK(passDownAttachmentScores[3].paralleleScore() == -INFINITY);
     BOOST_CHECK(passDownAttachmentSumScores[3].paralleleScore() == -INFINITY);
 
     double result = std::log(0.9) - std::log(0.1) +
-            std::log(0.8) - std::log(0.2) +
-            std::log(0.3) - std::log(0.7) +
-            std::log(0.2) - std::log(0.8);
+                    std::log(0.8) - std::log(0.2) +
+                    std::log(0.3) - std::log(0.7) +
+                    std::log(0.2) - std::log(0.8);
 
     BOOST_CHECK(std::abs(passDownAttachmentSumScores[5].paralleleScore() - result)
-    <100.0 * std::numeric_limits<double>::epsilon());
+                < 100.0 * std::numeric_limits<double>::epsilon());
 
     result = std::log(0.7) - std::log(0.3) +
              std::log(0.5) - std::log(0.4) +
@@ -1264,12 +1431,49 @@ BOOST_AUTO_TEST_CASE(sample_tree_lcaR_prob_1) {
 
     // TODO, there is quite some imprecision involved
     BOOST_CHECK(std::abs(passDownAttachmentSumScores[6].paralleleScore() - result)
-                <1000.0 * std::numeric_limits<double>::epsilon());
+                < 1000.0 * std::numeric_limits<double>::epsilon());
 
     BOOST_CHECK(std::abs(attachmentScores[0].lcaRScore() -
-    addLogProb(passDownAttachmentSumScores[5].paralleleScore(),
-            passDownAttachmentSumScores[6].paralleleScore()))
-                <100.0 * std::numeric_limits<double>::epsilon());
+                         addLogProb(passDownAttachmentSumScores[5].paralleleScore(),
+                                    passDownAttachmentSumScores[6].paralleleScore()))
+                < 100.0 * std::numeric_limits<double>::epsilon());
+}
+
+BOOST_AUTO_TEST_CASE(sample_tree_lcaR_prob_3) {
+    Config<SampleTree> config;
+    initTree3(config);
+    config.computeLossScore = true;
+    config.computeParallelScore = true;
+    scoreTree(config);
+
+    Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
+    static Config<SampleTree>::TAttachmentScores attachmentSumScores;
+    attachmentSumScores.resize(attachmentScores.size());
+    static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentScores;
+    passDownAttachmentScores.resize(attachmentScores.size());
+    static Config<SampleTree>::TPassDownAttachmentScores passDownAttachmentSumScores;
+    passDownAttachmentSumScores.resize(attachmentScores.size());
+
+    Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
+    scoreSum = AttachmentScore();
+    PassScoreToChildrenBFSVisitor visBFS(config,
+                                         attachmentScores,
+                                         attachmentSumScores,
+                                         passDownAttachmentScores,
+                                         passDownAttachmentSumScores,
+                                         scoreSum,
+                                         0);
+    breadth_first_search(config.getTree(), num_vertices(config.getTree()) - 1, visitor(visBFS));
+
+    BOOST_CHECK(std::abs(attachmentScores[0].lcaRScore() -
+                         passDownAttachmentSumScores[4].paralleleScore())
+                < 100.0 * std::numeric_limits<double>::epsilon());
+    BOOST_CHECK(std::abs(passDownAttachmentSumScores[4].paralleleScore() -
+                         passDownAttachmentSumScores[2].paralleleScore())
+                < 100.0 * std::numeric_limits<double>::epsilon());
+    BOOST_CHECK(std::abs(passDownAttachmentSumScores[5].paralleleScore() -
+                         passDownAttachmentSumScores[2].paralleleScore())
+                < 100.0 * std::numeric_limits<double>::epsilon());
 }
 
 BOOST_AUTO_TEST_CASE(sample_tree_compute_score) {
@@ -1277,6 +1481,8 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score) {
         {
             Config<SampleTree> config;
             initTree2(config);
+            config.computeLossScore = true;
+            config.computeParallelScore = true;
             scoreTree(config);
 
             // test the heterozygous case
@@ -1519,112 +1725,54 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_score) {
 
             BOOST_CHECK(config._tmpAttachmentScore.hetSumScore(5) == config._tmpAttachmentScore.hetScore(5));
             BOOST_CHECK(config._tmpAttachmentScore.hetSumScore(3) ==
-                            addLogProb(config._tmpAttachmentScore.hetScore(3),
-                        addLogProb(config._tmpAttachmentScore.hetScore(5),
-                        config._tmpAttachmentScore.hetScore(6))));
+                        addLogProb(config._tmpAttachmentScore.hetScore(3),
+                                   addLogProb(config._tmpAttachmentScore.hetScore(5),
+                                              config._tmpAttachmentScore.hetScore(6))));
             BOOST_CHECK(config._tmpAttachmentScore.hetSumScore(1) ==
                         addLogProb(config._tmpAttachmentScore.hetScore(1),
-                        addLogProb(config._tmpAttachmentScore.hetScore(3),
-                        addLogProb(config._tmpAttachmentScore.hetScore(4),
-                        addLogProb(config._tmpAttachmentScore.hetScore(5),
-                        config._tmpAttachmentScore.hetScore(6))))));
+                                   addLogProb(config._tmpAttachmentScore.hetScore(3),
+                                              addLogProb(config._tmpAttachmentScore.hetScore(4),
+                                                         addLogProb(config._tmpAttachmentScore.hetScore(5),
+                                                                    config._tmpAttachmentScore.hetScore(6))))));
 
             BOOST_CHECK(config._tmpAttachmentScore.lcaScore(1) ==
                         addLogProb(config._tmpAttachmentScore.hetScore(3),
-                        addLogProb(config._tmpAttachmentScore.hetScore(5),
-                        config._tmpAttachmentScore.hetScore(6))) + config._tmpAttachmentScore.hetScore(4));
+                                   addLogProb(config._tmpAttachmentScore.hetScore(5),
+                                              config._tmpAttachmentScore.hetScore(6))) +
+                        config._tmpAttachmentScore.hetScore(4));
 
             BOOST_CHECK(config._tmpAttachmentScore.childHetSumScore(3) ==
-            addLogProb(config._tmpAttachmentScore.hetScore(5), config._tmpAttachmentScore.hetScore(6)));
+                        addLogProb(config._tmpAttachmentScore.hetScore(5), config._tmpAttachmentScore.hetScore(6)));
 
             BOOST_CHECK(config._tmpAttachmentScore.childHetSumScore(1) ==
-                       addLogProb(config._tmpAttachmentScore.hetScore(3), config._tmpAttachmentScore.hetScore(4)));
+                        addLogProb(config._tmpAttachmentScore.hetScore(3), config._tmpAttachmentScore.hetScore(4)));
 
             // only the root can be the lowest common ancestor (lca)
-            for (unsigned i = 1; i <= 14; ++i)
-            {
+            for (unsigned i = 1; i <= 14; ++i) {
                 BOOST_CHECK_MESSAGE(config._tmpAttachmentScore.lcaRScore(i) == -INFINITY,
-                                   "config._tmpAttachmentScore.lcaRScore(" << i << ") != -inf - "
-                                           << config._tmpAttachmentScore.lcaRScore(i));
+                                    "config._tmpAttachmentScore.lcaRScore(" << i << ") != -inf - "
+                                                                            << config._tmpAttachmentScore.lcaRScore(i));
 
             }
 
             result = addLogProb(std::log(0.9) - std::log(0.1)
-                          + std::log(0.8) - std::log(0.2)
-                          + std::log(0.3) - std::log(0.7)
-                          + std::log(0.2) - std::log(0.8),
-                          std::log(0.7) - std::log(0.3)
-                          + std::log(0.5) - std::log(0.4)
-                          + std::log(0.3) - std::log(0.7)
-                          + std::log(0.2) - std::log(0.8));
+                                + std::log(0.8) - std::log(0.2)
+                                + std::log(0.3) - std::log(0.7)
+                                + std::log(0.2) - std::log(0.8),
+                                std::log(0.7) - std::log(0.3)
+                                + std::log(0.5) - std::log(0.4)
+                                + std::log(0.3) - std::log(0.7)
+                                + std::log(0.2) - std::log(0.8));
 
             BOOST_CHECK_MESSAGE(std::abs(config._tmpAttachmentScore.lcaRScore(0) - result)
                                 <= 100.0 * std::numeric_limits<double>::epsilon(),
                                 config._tmpAttachmentScore.lcaRScore(0)
                                         << " != " << result);
-
-
-
-
-
-
-
-
-            /*result = 1.0 / 15.0 * 0.8 * exp(config._tmpAttachmentScore.hetScore(0))
-                     + 1.0 / 7.0 * 0.2 * exp(config._tmpAttachmentScore.homScore(0));
-            result = std::log(result);
-            config._tmpAttachmentScore[0].computeFinalScore(0.2, 0.1, 7, config.numMutPlacements[0],
-                                                            false, false, false);
-            BOOST_CHECK_MESSAGE(std::abs(result - config._tmpAttachmentScore[0].finalScore())
-                                <= 10.0 * std::numeric_limits<double>::epsilon(), result
-                                        << " != " << config._tmpAttachmentScore[0].finalScore());
-
-            result = 0.7 * 1.0 / 15.0 * exp(config._tmpAttachmentScore.hetScore(0))
-                     + 1.0 / 7.0 * 0.2 * exp(config._tmpAttachmentScore.homScore(0))
-                     + 0.1 * 1.0 / 6.0 * (exp(config._tmpAttachmentScore.lossWildScore(0))
-                                          + exp(config._tmpAttachmentScore.lossAltScore(0))) / 2.0;
-            result = std::log(result);
-
-            config._tmpAttachmentScore[0].computeFinalScore(0.2, 0.1, 7, config.numMutPlacements[0],
-                                                            false, true, false);
-            BOOST_CHECK_MESSAGE(std::abs(result - config._tmpAttachmentScore[0].finalScore())
-                                <= 10.0 * std::numeric_limits<double>::epsilon(), result
-                                        << " != " << config._tmpAttachmentScore[0].finalScore());
-                */
-            /*
-            std::cout << result << std::endl;
-
-            double a = config._tmpAttachmentScore.hetScore(0);
-            double b = config._tmpAttachmentScore.homScore(0);
-            double c = config._tmpAttachmentScore.lossWildScore(0);
-            double d = config._tmpAttachmentScore.lossAltScore(0);
-
-            std::cout << 0 << " " << config._tmpAttachmentScore[0] << std::endl;
-
-            for (unsigned i = 1; i < config._tmpAttachmentScore.size(); ++i) {
-                std::cout << i << " " << config._tmpAttachmentScore[i] << std::endl;
-                a = addLogProb(a, config._tmpAttachmentScore.hetScore(i));
-            }
-            for (unsigned i = 1; i < 7; ++i) {
-                b = addLogProb(b, config._tmpAttachmentScore.homScore(i));
-            }
-
-            c = addLogProb(c, config._tmpAttachmentScore.lossWildScore(1));
-            d = addLogProb(d, config._tmpAttachmentScore.lossAltScore(1));
-
-            std::cout << a << " " << b << " " << c << " " << d << " " << std::log(0.7 * 1.0 / 15.0 * exp(a)
-                                                                                  + 1.0 / 7.0 * 0.2 * exp(b)
-                                                                                  +
-                                                                                  0.1 * 1.0 / 6.0 * (exp(c) + exp(d)) /
-                                                                                  2.0) << std::endl;
-            */
-
-
         }
     }
 }
 
-BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_het) {
+BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution1) {
 
     Config<SampleTree> config;
     initTree2(config);
@@ -1642,7 +1790,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_het) {
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
     scoreSum = AttachmentScore();
 
-    typename Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    typename Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     getAllAttachmentScores(attachmentScores, scoreSum, config, 0);
     std::array<double, 5> res;
 
@@ -1687,7 +1835,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_het) {
     BOOST_CHECK(res[4] <= 10.0 * std::numeric_limits<double>::epsilon());
 }
 
-BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_hom) {
+BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution2) {
 
     Config<SampleTree> config;
     initTree2(config);
@@ -1707,7 +1855,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_hom) {
 
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
 
-    typename Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    typename Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
     getAllAttachmentScores(attachmentScores, scoreSum, config, 0);
     std::array<double, 5> res;
 
@@ -1717,7 +1865,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_hom) {
     BOOST_CHECK(res[1] == -INFINITY);
     BOOST_CHECK(res[2] == -INFINITY);
     BOOST_CHECK(res[3] == -INFINITY);
-    BOOST_CHECK(std::abs(std::exp(res[4]) - 1.0)<= 10.0 * std::numeric_limits<double>::epsilon());
+    BOOST_CHECK(std::abs(std::exp(res[4]) - 1.0) <= 10.0 * std::numeric_limits<double>::epsilon());
 
     config.learnZygocity = true;
     getAllAttachmentScores(attachmentScores, scoreSum, config, 0);
@@ -1728,7 +1876,7 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_hom) {
     BOOST_CHECK(std::abs(std::exp(res[1]) - result) <= 10.0 * std::numeric_limits<double>::epsilon());
     BOOST_CHECK(res[2] == -INFINITY);
     BOOST_CHECK(res[3] == -INFINITY);
-    BOOST_CHECK(std::abs(std::exp(res[4]) -  (0.9 + result)) <= 10.0 * std::numeric_limits<double>::epsilon());
+    BOOST_CHECK(std::abs(std::exp(res[4]) - (0.9 + result)) <= 10.0 * std::numeric_limits<double>::epsilon());
 
     double result2 = 0.15 * (0.5 * (9 * 0.25 + 2 * 0.0625 + 0.015625) / 12.0 + 0.5);
     config.computeLossScore = true;
@@ -1739,7 +1887,8 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_hom) {
     BOOST_CHECK(std::abs(std::exp(res[1]) - result) <= 10.0 * std::numeric_limits<double>::epsilon());
     BOOST_CHECK(std::abs(std::exp(res[2]) - result2) <= 10.0 * std::numeric_limits<double>::epsilon());
     BOOST_CHECK(res[3] == -INFINITY);
-    BOOST_CHECK(std::abs(std::exp(res[4]) -  (0.75 + result + result2)) <= 10.0 * std::numeric_limits<double>::epsilon());
+    BOOST_CHECK(
+            std::abs(std::exp(res[4]) - (0.75 + result + result2)) <= 10.0 * std::numeric_limits<double>::epsilon());
 
     config.computeParallelScore = true;
     getAllAttachmentScores(attachmentScores, scoreSum, config, 0);
@@ -1750,8 +1899,46 @@ BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_contribution_hom) {
     BOOST_CHECK(std::abs(std::exp(res[1]) - result) <= 10.0 * std::numeric_limits<double>::epsilon());
     BOOST_CHECK(std::abs(std::exp(res[2]) - result2) <= 10.0 * std::numeric_limits<double>::epsilon());
     BOOST_CHECK(std::abs(std::exp(res[3]) - 0.35) <= 10.0 * std::numeric_limits<double>::epsilon());
-    BOOST_CHECK(std::abs(std::exp(res[4]) - (0.4 + result + result2 + 0.35)) <= 10.0 * std::numeric_limits<double>::epsilon());
+    BOOST_CHECK(std::abs(std::exp(res[4]) - (0.4 + result + result2 + 0.35)) <=
+                10.0 * std::numeric_limits<double>::epsilon());
 }
+
+BOOST_AUTO_TEST_CASE(sample_tree_compute_mut_type_het_2) {
+
+    Config<SampleTree> config;
+    initTree2(config);
+    config.learnZygocity = true;
+    config.computeLossScore = true;
+    config.computeParallelScore = true;
+    scoreTree(config);
+
+    for (unsigned i = 0; i < 4; ++i) {
+        std::get<0>(config.logScores).wtScore(i, 0) = std::log(0.01);
+        std::get<0>(config.logScores).hetScore(i, 0) = std::log(1);
+        std::get<0>(config.logScores).homScore(i, 0) = std::log(0.01);
+    }
+    for (unsigned i = 4; i < 8; ++i) {
+        std::get<0>(config.logScores).wtScore(i, 0) = std::log(1);
+        std::get<0>(config.logScores).hetScore(i, 0) = std::log(0.01);
+        std::get<0>(config.logScores).homScore(i, 0) = std::log(0.01);
+    }
+
+    Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
+    scoreSum = AttachmentScore();
+
+    typename Config<SampleTree>::TAttachmentScores &attachmentScores = config.getTmpAttachmentScore();
+    getAllAttachmentScores(attachmentScores, scoreSum, config, 0);
+    std::array<double, 5> res;
+
+    scoreSum.computeMutTypeContribution(config, scoreSum, res);
+
+    std::cout << std::exp(res[0]-res[4]) << " " <<
+        std::exp(res[1]-res[4]) << " " <<
+        std::exp(res[2]-res[4]) << " " <<
+        std::exp(res[3]-res[4]) << " " <<
+        std::exp(res[4]-res[4]) << std::endl;
+}
+
 
 
 BOOST_AUTO_TEST_CASE(sample_tree_simplify_tree) {
@@ -1807,7 +1994,7 @@ BOOST_AUTO_TEST_CASE(read_data_skip_indels) {
 
 BOOST_AUTO_TEST_CASE(read_data_extract_seq_information) {
     std::vector<std::string> testLine = {"chr", "13", "REF", "5", "...,,^A", "IIIII", "5", "AC$GTN", "IIIII", "5",
-                                    ".-3AACA.T.", "IIIII"};
+                                         ".-3AACA.T.", "IIIII"};
     std::vector<std::array<unsigned, 5>> counts;
     counts.resize(3);
     counts[0] = {{0, 0, 0, 0, 0}};
@@ -1868,7 +2055,8 @@ BOOST_AUTO_TEST_CASE(read_data_log_n_choose_k) {
 }
 
 BOOST_AUTO_TEST_CASE(read_data_pass_cov_filter) {
-    std::vector<std::string> testLine = {"chr", "13", "REF", "2", "..", "II", "2", "AC", "II", "5", ".-3AACA.T.", "IIIII"};
+    std::vector<std::string> testLine = {"chr", "13", "REF", "2", "..", "II", "2", "AC", "II", "5", ".-3AACA.T.",
+                                         "IIIII"};
     std::vector<std::array<unsigned, 5>> counts;
     counts.resize(3);
     std::vector<unsigned> pos = {0, 1, 2};
@@ -1884,8 +2072,9 @@ BOOST_AUTO_TEST_CASE(read_data_pass_cov_filter) {
 }
 
 BOOST_AUTO_TEST_CASE(read_data_pass_supp_filter) {
-    std::vector<std::string> testLine = {"chr", "13", "REF", "6", "..ACGG", "IIIIII", "2", "AC", "II", "5", ".-3AACAAT.",
-                                    "IIIII"};
+    std::vector<std::string> testLine = {"chr", "13", "REF", "6", "..ACGG", "IIIIII", "2", "AC", "II", "5",
+                                         ".-3AACAAT.",
+                                         "IIIII"};
     std::vector<std::array<unsigned, 5>> counts;
     counts.resize(3);
 
@@ -1902,8 +2091,9 @@ BOOST_AUTO_TEST_CASE(read_data_pass_supp_filter) {
 }
 
 BOOST_AUTO_TEST_CASE(read_data_pass_freq_filter) {
-    std::vector<std::string> testLine = {"chr", "13", "REF", "6", "..ACGG", "IIIIII", "2", "AC", "II", "5", ".-3AACAAT.",
-                                    "IIIII"};
+    std::vector<std::string> testLine = {"chr", "13", "REF", "6", "..ACGG", "IIIIII", "2", "AC", "II", "5",
+                                         ".-3AACAAT.",
+                                         "IIIII"};
     std::vector<std::array<unsigned, 5>> counts;
     counts.resize(3);
 
@@ -1929,7 +2119,7 @@ BOOST_AUTO_TEST_CASE(read_data_apply_filter_across_cells) {
     config.minNumCellsPassFilter = 2;
 
     std::vector<std::string> testLine = {"chr", "13", "REF", "4", "..AA", "IIII", "2", "AC", "II", "5", ".-3AACAAT.",
-                                    "IIIII"};
+                                         "IIIII"};
     std::vector<std::array<unsigned, 5>> counts;
     counts.resize(3);
     std::vector<unsigned> pos = {0, 1, 2};

@@ -66,9 +66,10 @@ printMutationProbability(Config<SampleTree> const & config,
         outFile << std::get<0>(config.indexToPosition[j]) << "\t" << std::get<1>(config.indexToPosition[j]) << "\t";
         for (unsigned int i = 0; i < config.getNumSamples(); ++i)
         {
-			//outFile << config.mutInSampleCounter[i][j] << "\t";
 			outFile << config.mutInSampleCounter[i][j].hetScore() << "|" << 
                        config.mutInSampleCounter[i][j].homScore() << "|" <<
+                       config.mutInSampleCounter[i][j].lossWildScore() << "|" << //TODO: here lossWildScore is a mix of lossWildScore and lossAltRScore
+                       config.mutInSampleCounter[i][j].lcaRScore() << "|" <<
                        config.mutInSampleCounter[i][j].finalScore() << "\t";
 		}
 		outFile << std::endl;

@@ -188,7 +188,6 @@ proposeNextConfiguration(Config<TTreeType> & config)
     else
     {
         config.setTmpTree(config.getTree());
-        config.numMutPlacements[1] = config.numMutPlacements[0];
         if(config.getMoveTyp()==1){ /* prune and re-attach */
             pruneAndReAttach(config);
         }
@@ -202,7 +201,6 @@ proposeNextConfiguration(Config<TTreeType> & config)
         {
             std::cout << "This should not have happened!" << std::endl;
         }
-        config.numMutPlacements[0] = getNumPlacements(config);
     }
 }
 
@@ -292,19 +290,29 @@ updateMutInSampleCounts(Config<SampleTree> & config)
                 passDownAttachmentSumScores[i].paralleleScore() -= scoreSum.lcaRScore();
 
                 // compute final score
-                attachmentSumScores[i].finalScore() =  attachmentSumScores[i].hetScore() + logPHet;
+                attachmentSumScores[i].hetScore() = attachmentSumScores[i].hetScore() + logPHet;
+                attachmentSumScores[i].finalScore() =  attachmentSumScores[i].hetScore();
                 if (config.learnZygocity)
                 {
-                    attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(), attachmentSumScores[i].homScore() + logPHom);
+                    attachmentSumScores[i].homScore() = attachmentSumScores[i].homScore() + logPHom;
+                    attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(),
+                            attachmentSumScores[i].homScore());
                 }
                 if (config.computeLossScore)
                 {
+                    // TODO: overwriting lossWildScore in this way is error prone
+                    attachmentSumScores[i].lossWildScore() =
+                            addLogProbWeight(attachmentSumScores[i].lossWildScore(),
+                                    attachmentSumScores[i].lossAltScore(), 0.5) + logPLoss;
                     attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(),
-                                                                     addLogProbWeight(attachmentSumScores[i].lossWildScore(), attachmentSumScores[i].lossAltScore(), 0.5) + logPLoss);
+                            attachmentSumScores[i].lossWildScore());
                 }
                 if (config.computeParallelScore)
                 {
-                    attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(), passDownAttachmentSumScores[i].paralleleScore() + logPPara);
+                    attachmentSumScores[i].lcaRScore() = 
+                            passDownAttachmentSumScores[i].paralleleScore() + logPPara;
+                    attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(),
+                            attachmentSumScores[i].lcaRScore());
                 }
 
                 // update the counter
@@ -334,8 +342,6 @@ runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees,
         bestTrees.resize(1);
         bestTrees[0] = config.getTree();
         bestParams = config.params;
-        config.numMutPlacements[0] = getNumPlacements(config);
-        config.numMutPlacements[1] = config.numMutPlacements[0];
 
 		double currTreeLogScore = scoreTree(config);       // get score of random tree
         manageBestTrees(config,
@@ -408,7 +414,6 @@ runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees,
                 else
                 {
                     config.getTree().swap(config.getTmpTree());
-                    config.numMutPlacements[0] = config.numMutPlacements[1]; 
                 }
             }
            

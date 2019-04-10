@@ -44,7 +44,7 @@ class Config;
  */
 struct AttachmentScore {
 
-    typedef std::array<double, 16> TAttachmentScore;
+    typedef std::array<double, 15> TAttachmentScore;
 
     TAttachmentScore attachmentScore;
 
@@ -67,12 +67,11 @@ struct AttachmentScore {
         E_grantChildHetSumScore = 9,       // probability of a mutation below the current node, but not in itself
                                             // or the child nodes
         E_finalScore = 10,                  // final combined score
-        E_numAltPoss = 11,                  // number of different possibilities to loose the current mutation
-        E_numAltRPoss = 12,                 // number of different possibilities to loose the current mutation (but not directly in
+        E_numAltRPoss = 11,                 // number of different possibilities to loose the current mutation (but not directly in
                                             // the child nodes
-        E_numInnerNodes = 13,               // number of inner nodes below the current one
-        E_numInnerChildNodes = 14,          // number of child nodes that are inner nodes (0, 1, or 2)
-        E_numLcaRPoss = 15                 // number of possibilities for a parallel mutation below the current node
+        E_numInnerNodes = 12,               // number of inner nodes below the current one
+        E_numInnerChildNodes = 13,          // number of child nodes that are inner nodes (0, 1, or 2)
+        E_numLcaRPoss = 14                 // number of possibilities for a parallel mutation below the current node
 
 
     };
@@ -91,7 +90,6 @@ struct AttachmentScore {
                                      -INFINITY,
                                      -INFINITY,
                                      -INFINITY,
-                                     0,
                                      0,
                                      0,
                                      0,
@@ -189,14 +187,6 @@ struct AttachmentScore {
 
     double const &childHetSumScore() const {
         return this->attachmentScore[E_childHetSumScore];
-    }
-
-    double const &numAltPoss() const {
-        return this->attachmentScore[E_numAltPoss];
-    }
-
-    double &numAltPoss() {
-        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numAltPoss());
     }
 
     double const &numAltRPoss() const {
@@ -474,14 +464,6 @@ struct AttachmentScores {
         return this->attachmentScores[attachPoint].grantChildHetSumScore();
     }
 
-    double &numAltPoss(unsigned attachPoint) {
-        return this->attachmentScores[attachPoint].numAltPoss();
-    }
-
-    double const &numAltPoss(unsigned attachPoint) const {
-        return this->attachmentScores[attachPoint].numAltPoss();
-    }
-
     double &numAltRPoss(unsigned attachPoint) {
         return this->attachmentScores[attachPoint].numAltRPoss();
     }
@@ -577,9 +559,9 @@ struct AttachmentScores {
             // loss wild type chromosome
             leftContWildLos = addLogProb(this->lossWildScore(lN), this->homScore(lN)) + this->hetScore(rN);
 
-            this->numAltPoss(attachPoint) = this->numAltPoss(lN) + 1;
+            this->numInnerNodes(attachPoint) = this->numInnerNodes(lN) + 1;
 
-            this->numAltRPoss(attachPoint) = this->numAltPoss(lN);
+            this->numAltRPoss(attachPoint) = this->numInnerNodes(lN);
 
             computeValues = true;
 
@@ -591,9 +573,9 @@ struct AttachmentScores {
             // loss wild type chromosome
             rightContWildLos = addLogProb(this->lossWildScore(rN), this->homScore(rN)) + this->hetScore(lN);
 
-            this->numAltPoss(attachPoint) += this->numAltPoss(rN) + 1;
+            this->numInnerNodes(attachPoint) += this->numInnerNodes(rN) + 1;
 
-            this->numAltRPoss(attachPoint) += this->numAltPoss(rN);
+            this->numAltRPoss(attachPoint) += this->numInnerNodes(rN);
 
             computeValues = true;
         }
@@ -623,18 +605,21 @@ struct AttachmentScores {
         this->hetSumScore(attachPoint) = addLogProb(hetScore(attachPoint),
                 addLogProb(hetSumScore(lN), hetSumScore(rN)));
 
-        // check if child nodes are inner nodes
+        // if the child nodes are leafs assign -INFINITY as parallel mutation in leafs are prohibited
+        double lChildHetScore = tree[lN].sample == -1 ? this->hetScore(lN) : -INFINITY;
+        double rChildHetScore = tree[rN].sample == -1 ? this->hetScore(rN) : -INFINITY;
+
+        this->childHetSumScore(attachPoint) = addLogProb(lChildHetScore, rChildHetScore);
+        this->lcaScore(attachPoint) = hetSumScore(lN) + hetSumScore(rN);
+
+        double hetContLcaR = lChildHetScore + rChildHetScore;
+        double leftContLcaR = this->childHetSumScore(lN) + rChildHetScore;
+        double rightContLcaR = lChildHetScore + this->childHetSumScore(rN);
+        this->lcaRScore(attachPoint) = subLogProb(
+                subLogProb(this->lcaScore(attachPoint), hetContLcaR),
+                addLogProb(leftContLcaR, rightContLcaR));
+
         if(tree[lN].sample == -1 && tree[rN].sample == -1) {
-            this->childHetSumScore(attachPoint) = addLogProb(this->hetScore(lN), this->hetScore(rN));
-            this->lcaScore(attachPoint) = hetSumScore(lN) + hetSumScore(rN);
-
-            double hetContLcaR = this->hetScore(lN) + this->hetScore(rN);
-            double leftContLcaR = this->childHetSumScore(lN) + this->hetScore(rN);
-            double rightContLcaR = this->hetScore(lN) + this->childHetSumScore(rN);
-            this->lcaRScore(attachPoint) = subLogProb(
-                    subLogProb(this->lcaScore(attachPoint), hetContLcaR),
-                    addLogProb(leftContLcaR, rightContLcaR));
-
             this->numInnerNodes(attachPoint) = this->numInnerNodes(lN) + this->numInnerNodes(rN) + 2;
             this->numInnerChildNodes(attachPoint) = 2;
             this->numLcaRPoss(attachPoint) = (this->numInnerNodes(lN) + 1) * (this->numInnerNodes(rN) + 1)
