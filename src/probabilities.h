@@ -133,11 +133,6 @@ subLogProb(double x, double y)
         return x;
     }
 
-    if (x == -INFINITY)
-    {
-        return -y;
-    }
-
     if (std::abs(x-y) <= 100 * std::numeric_limits<double>::epsilon())
     {
         return -INFINITY;
@@ -361,6 +356,10 @@ public:
             return;
         }
 
+        attachmentSumScores[v] = AttachmentScore();
+        passDownAttachmentScores[v] = PassDownAttachmentScore();
+        passDownAttachmentSumScores[v] = PassDownAttachmentScore();
+
         unsigned pN = source(*in_edges(v, g).first, g); // parent Node
 
         if (pN == num_vertices(config.getTree()) - 1)
@@ -410,7 +409,8 @@ public:
             if(g[sN].sample == -1)
             {
                 passDownAttachmentScores[v].paralleleScore() = subLogProb(
-                        passDownAttachmentScores[v].paralleleScore(), attachmentScores[v].hetScore() +
+                        passDownAttachmentScores[v].paralleleScore(),
+                        attachmentScores[v].hetScore() +
                         addLogProb(attachmentScores[sN].hetScore(), attachmentScores[sN].childHetSumScore()));
             }
             if (ppN != num_vertices(config.getTree()) - 1)

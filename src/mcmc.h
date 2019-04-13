@@ -242,7 +242,7 @@ manageBestTrees(Config<SampleTree> & config,
 // This function is actually doing the sampling of the mutations from the posterior distribution
 inline
 void 
-updateMutInSampleCounts(Config<SampleTree> & config)
+updateMutInSampleCounts(Config<SampleTree> & config, unsigned it)
 {
     Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
@@ -252,6 +252,26 @@ updateMutInSampleCounts(Config<SampleTree> & config)
     passDownAttachmentScores.resize(attachmentScores.size());
     passDownAttachmentSumScores.resize(attachmentScores.size());
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
+
+
+    {
+        std::ofstream ofs(config.outFilePrefix +  "_r_" + std::to_string(it) + ".gv");
+        write_graphviz(ofs, config.getTree(), my_label_writer_complete(config.getTree()));
+        ofs.close();
+    }
+
+    {
+        typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>> TGraph;
+        TGraph newTreeBest = simplifyTree(config);
+        std::ofstream ofs2(config.outFilePrefix + "_" + std::to_string(it) + ".gv");
+        write_graphviz(ofs2, newTreeBest,
+                       my_label_writer(newTreeBest, config.indexToPosition, config.cellNames, config.cellColours,
+                                       config.cellClusters));
+    }
+
+    {
+        writeIndex(config);
+    }
 
     // for all mutations
     for (size_t attachment = 0; attachment < config.getNumAttachments(); ++attachment) {
@@ -286,7 +306,7 @@ updateMutInSampleCounts(Config<SampleTree> & config)
                 attachmentSumScores[i].hetScore() -= scoreSum.hetScore();
                 attachmentSumScores[i].homScore() -= scoreSum.homScore();
                 attachmentSumScores[i].lossWildScore() -= scoreSum.lossWildScore();
-                attachmentSumScores[i].lossAltScore() -= scoreSum.lossAltScore();
+                attachmentSumScores[i].lossAltRScore() -= scoreSum.lossAltRScore();
                 passDownAttachmentSumScores[i].paralleleScore() -= scoreSum.lcaRScore();
 
                 // compute final score
@@ -303,13 +323,13 @@ updateMutInSampleCounts(Config<SampleTree> & config)
                     // TODO: overwriting lossWildScore in this way is error prone
                     attachmentSumScores[i].lossWildScore() =
                             addLogProbWeight(attachmentSumScores[i].lossWildScore(),
-                                    attachmentSumScores[i].lossAltScore(), 0.5) + logPLoss;
+                                    attachmentSumScores[i].lossAltRScore(), 0.5) + logPLoss;
                     attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(),
                             attachmentSumScores[i].lossWildScore());
                 }
                 if (config.computeParallelScore)
                 {
-                    attachmentSumScores[i].lcaRScore() = 
+                    attachmentSumScores[i].lcaRScore() =
                             passDownAttachmentSumScores[i].paralleleScore() + logPPara;
                     attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(),
                             attachmentSumScores[i].lcaRScore());
@@ -344,6 +364,7 @@ runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees,
         bestParams = config.params;
 
 		double currTreeLogScore = scoreTree(config);       // get score of random tree
+
         manageBestTrees(config,
                 bestTreeLogScore, 
                 currTreeLogScore,
@@ -380,9 +401,8 @@ runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees,
                 std::cout << "iterations: " << it << std::endl;
                 std::cout << "score: " << currTreeLogScore << std::endl;
                 std::cout << "bestScore: " << bestTreeLogScore << std::endl;
-                std::cout << "num trees: " << bestTrees.size() << std::endl;
 			}
-
+            
             // sample the next tree configuration
             proposeNextConfiguration(config); 
             propTreeLogScore = scoreTree(config);
@@ -420,7 +440,7 @@ runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees,
             // sample from the posterior distribution
             if (it >= config.loops)
             {
-                updateMutInSampleCounts(config);
+                updateMutInSampleCounts(config,it);
                 config.updateParamsCounter();
                 if (config.sampling != 0 && it%config.sampling == 0)
                 {

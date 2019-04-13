@@ -1175,6 +1175,20 @@ void readNucInfo(Config<TTreeType> & config)
         config.setSDParam(Config<SampleTree>::E_nu, std::stod(splitVec[1]));
         config.setSDCountParam(Config<SampleTree>::E_nu, std::stoi(splitVec[2]));
         config.setSDTrialsParam(Config<SampleTree>::E_nu, std::stoi(splitVec[3]));
+
+        std::getline(inFile, line);
+        boost::split(splitVec, line, boost::is_any_of("\t"));
+        config.setParam(Config<SampleTree>::E_lambda, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_lambda, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_lambda, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_lambda, std::stoi(splitVec[3]));
+
+        std::getline(inFile, line);
+        boost::split(splitVec, line, boost::is_any_of("\t"));
+        config.setParam(Config<SampleTree>::E_parallel, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_parallel, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_parallel, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_parallel, std::stoi(splitVec[3]));
     }
 
     std::getline(inFile, line);
