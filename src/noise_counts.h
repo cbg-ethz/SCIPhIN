@@ -23,6 +23,9 @@
 #ifndef NOISE_COUNTS_H
 #define NOISE_COUNTS_H
 
+// This data structure stores how many times each coverage, suppoert, and their difference was observed. It will
+// store this information from the lowest to the highest values. If a certain value is not observed there will be
+// an entry with a zero.
 struct GappedNoiseCounts
 {
     std::vector<uint64_t> cov;
@@ -60,8 +63,11 @@ std::ostream& operator<<(std::ostream & os, const GappedNoiseCounts & noiseCount
     for (unsigned i = 0; i < noiseCounts.covMinusSup.size(); ++i)
         os << "\t" << i<< ":" << noiseCounts.covMinusSup[i];
     return os;  
-}  
+}
 
+// This data structure stores how many times each coverage, suppoert, and their difference was observed. It will
+// store this information from the lowest to the highest values. If a certain value is not observed it will not be
+// stored, such that this structure is more space effcient than GappedNoiseCounts.
 struct NoiseCounts
 {
     std::vector<std::pair<uint32_t, uint64_t>> cov;

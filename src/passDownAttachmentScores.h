@@ -25,8 +25,10 @@
 #define PASSDOWNATTACHMENTSCORES_H
 
 /*
- * This class stores values associated with the attachment of mutations
- * to nodes in the phylogenetic tree.
+ * This class stores values associated with the attachment of mutations to nodes in the phylogenetic tree.
+ * However, in contrast to AttachmentScore this function only stores values when it comes to the computation of the
+ * probability of a certain cell to be affected by a certain mutation. In order to compute this value the previously
+ * computed attachment scores are passed down from the root node to the child nodes.
  */
 struct PassDownAttachmentScore {
 
@@ -35,29 +37,32 @@ struct PassDownAttachmentScore {
     TPassDownAttachmentScore passDownAttachmentScore;
 
     enum Type {
-        E_lossAltInCurrentNodeScore = 0,    // a mutation was gained in a node towards the root and is lost in the current node
-        E_lossAltInCurrentNodeRScore = 1,   // a mutation was gained in a node towards the root, but not the parent node
-                                            // and is lost in the current node
-        E_sib = 2,
-        E_parallel = 3
+        // A mutation was gained in a node towards the root and is lost in the current node
+                E_lossAltInCurrentNodeScore = 0,
+        // A mutation was gained in a node towards the root, but not the parent node and is lost in the current node
+                E_lossAltInCurrentNodeRScore = 1,
+        // A mutation is present in any node of the subtree rooted at the sibling node
+                E_sib = 2,
+        // The current node and any other node in a different subtree is mutated
+                E_parallel = 3
     };
 
     // init everything to -INFINITY because we are doing the computation in
     // log space and exp(-INFINITY) = 0
     PassDownAttachmentScore() :
-    passDownAttachmentScore({{-INFINITY,
-                    -INFINITY,
-                    -INFINITY,
-                    -INFINITY,
-                    -INFINITY,
-                    }}) {};
+            passDownAttachmentScore({{-INFINITY,
+                                             -INFINITY,
+                                             -INFINITY,
+                                             -INFINITY,
+                                             -INFINITY,
+                                     }}) {};
 
     double const &lossAltInCurrentNodeScore() const {
         return this->passDownAttachmentScore[E_lossAltInCurrentNodeScore];
     }
 
     double &lossAltInCurrentNodeScore() {
-        return const_cast<double &>(static_cast<const PassDownAttachmentScore*>(this)->lossAltInCurrentNodeScore());
+        return const_cast<double &>(static_cast<const PassDownAttachmentScore *>(this)->lossAltInCurrentNodeScore());
     }
 
     double const &lossAltInCurrentNodeRScore() const {
@@ -65,7 +70,7 @@ struct PassDownAttachmentScore {
     }
 
     double &lossAltInCurrentNodeRScore() {
-        return const_cast<double &>(static_cast<const PassDownAttachmentScore*>(this)->lossAltInCurrentNodeRScore());
+        return const_cast<double &>(static_cast<const PassDownAttachmentScore *>(this)->lossAltInCurrentNodeRScore());
     }
 
     double const &paralleleScore() const {
@@ -73,7 +78,7 @@ struct PassDownAttachmentScore {
     }
 
     double &paralleleScore() {
-        return const_cast<double &>(static_cast<const PassDownAttachmentScore*>(this)->paralleleScore());
+        return const_cast<double &>(static_cast<const PassDownAttachmentScore *>(this)->paralleleScore());
     }
 
     double const &sibNodeScore() const {
@@ -81,7 +86,7 @@ struct PassDownAttachmentScore {
     }
 
     double &sibNodeScore() {
-        return const_cast<double &>(static_cast<const PassDownAttachmentScore*>(this)->sibNodeScore());
+        return const_cast<double &>(static_cast<const PassDownAttachmentScore *>(this)->sibNodeScore());
     }
 };
 
@@ -115,7 +120,8 @@ struct PassDownAttachmentScores {
     }
 
     double &lossAltInCurrentNodeScore(unsigned attachPoint) {
-        return const_cast<double &>(static_cast<const PassDownAttachmentScores*>(this)->lossAltInCurrentNodeScore(attachPoint));
+        return const_cast<double &>(static_cast<const PassDownAttachmentScores *>(this)->lossAltInCurrentNodeScore(
+                attachPoint));
     }
 
     double const &lossAltInCurrentNodeRScore(unsigned attachPoint) const {
@@ -123,7 +129,8 @@ struct PassDownAttachmentScores {
     }
 
     double &lossAltInCurrentNodeRScore(unsigned attachPoint) {
-        return const_cast<double &>(static_cast<const PassDownAttachmentScores*>(this)->lossAltInCurrentNodeRScore(attachPoint));
+        return const_cast<double &>(static_cast<const PassDownAttachmentScores *>(this)->lossAltInCurrentNodeRScore(
+                attachPoint));
     }
 
     double const &paralleleScore(unsigned attachPoint) const {
@@ -131,7 +138,7 @@ struct PassDownAttachmentScores {
     }
 
     double &paralleleScore(unsigned attachPoint) {
-        return const_cast<double &>(static_cast<const PassDownAttachmentScores*>(this)->paralleleScore(attachPoint));
+        return const_cast<double &>(static_cast<const PassDownAttachmentScores *>(this)->paralleleScore(attachPoint));
     }
 
     double const &sibNodeScore(unsigned attachPoint) const {
@@ -139,54 +146,34 @@ struct PassDownAttachmentScores {
     }
 
     double &sibNodeScore(unsigned attachPoint) {
-        return const_cast<double &>(static_cast<const PassDownAttachmentScores*>(this)->sibNodeScore(attachPoint));
+        return const_cast<double &>(static_cast<const PassDownAttachmentScores *>(this)->sibNodeScore(attachPoint));
     }
 
     template<typename TTree>
     void computeLogLossInCurrentInnerNode(
             TTree const &tree,
-            AttachmentScores & attachmentScores,
+            AttachmentScores &attachmentScores,
             unsigned attachPoint) {
 
-        unsigned pN = source(*in_edges(attachPoint, tree).first, tree);                // parent node id
-        unsigned sN = getSibling(tree, attachPoint);
+        unsigned pN = source(*in_edges(attachPoint, tree).first, tree);     // parent node id
+        unsigned sN = getSibling(tree, attachPoint);                        // sibling node id
 
+        // If the current node is the root or a leaf do noting
         if (pN == num_vertices(tree) - 1 || tree[attachPoint].sample != -1) {
             return;
         }
 
+        // The likelihood that the mutation was lost in the current node
         this->lossAltInCurrentNodeScore(attachPoint) = addLogProb(this->lossAltInCurrentNodeScore(pN)
                                                                   + attachmentScores.hetScore(sN),
                                                                   attachmentScores.hetScore(pN)
                                                                   - attachmentScores.hetScore(attachPoint));
+
+        // The likelihood that the mutation was lost in the current node under the restricted model
         this->lossAltInCurrentNodeRScore(attachPoint) = subLogProb(this->lossAltInCurrentNodeScore(attachPoint),
                                                                    attachmentScores.hetScore(pN)
                                                                    - attachmentScores.hetScore(attachPoint));
     }
-
-//    template<typename TTree>
-//    void computeLogParallelInnerNode(
-//            TTree const &tree,
-//            AttachmentScores & attachmentScores,
-//            unsigned attachPoint) {
-//
-//        unsigned pN = source(*in_edges(attachPoint, tree).first, tree);                // parent node id
-//        unsigned sN = getSibling(tree, attachPoint);
-//
-//        if (pN == num_vertices(tree) - 1 || tree[attachPoint].sample != -1) {
-//            return;
-//        }
-//
-//
-//        this->lossAltInCurrentNodeScore(attachPoint) = addLogProb(this->lossAltInCurrentNodeScore(pN)
-//                                                                  + attachmentScores.hetScore(sN),
-//                                                                  attachmentScores.hetScore(pN)
-//                                                                  - attachmentScores.hetScore(attachPoint));
-//        this->lossAltInCurrentNodeRScore(attachPoint) = subLogProb(this->lossAltInCurrentNodeScore(attachPoint),
-//                                                                   attachmentScores.hetScore(pN)
-//                                                                   - attachmentScores.hetScore(attachPoint));
-//    }
-
 };
 
 

@@ -26,13 +26,13 @@
 
 #include <math.h>
 
-void addNaNSensitive(double a, double b)
-{
-    if (std::isnan(a))
-    {
-        return b;
-    }
-    return
-}
+//void addNaNSensitive(double a, double b)
+//{
+//    if (std::isnan(a))
+//    {
+//        return b;
+//    }
+//    return
+//}
 
 #endif //MISC_H

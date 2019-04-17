@@ -39,22 +39,7 @@
 #include "scoreTree.h"
 #include "probabilities.h"
 
-template <typename TTreeType>
-void 
-printLogScores(Config<TTreeType> & config)
-{
-	for (unsigned int i = 0; i < config.getLogScores().size(); ++i)
-	{
-		for (unsigned int j = 0; j < config.getLogScores()[0].size(); ++j)
-		{
-            std::cout << std::get<0>(config.getLogScores()[i][j]) << " | " << std::get<1>(config.getLogScores()[i][j]) << "\t";
-		}
-        std::cout << std::endl;
-	}
-}
-
-// This function keeps the coefficients between 0 and 1
-// by mirroring at 0 or 1
+// This function keeps the coefficients between 0 and 1 by mirroring at 0 or 1
 double adjusteCoefficient(double coEff)
 {
     while(true)
@@ -76,8 +61,9 @@ double adjusteCoefficient(double coEff)
     return coEff;
 }
 
-// This function assures that the overdispersion of the heterozygous mutation
-// cannot take a U form (alpha and beta are very close or bigger than 1)
+// This function assures that the overdispersion of the heterozygous mutation cannot take a U form (alpha and beta
+// are very close or bigger than 1)
+// TODO: Can we omit this function since some data sets indeed show U shape nucleotide distributions
 double adjustMutOverDis(double mutationOverDis)
 {
     if (mutationOverDis < 2.0)
@@ -87,6 +73,7 @@ double adjustMutOverDis(double mutationOverDis)
     return mutationOverDis;
 }
 
+// Choose which parameter to optimize
 template <typename TTreeType>
 void
 changeParameters(Config<TTreeType> & config)
@@ -110,25 +97,6 @@ changeParameters(Config<TTreeType> & config)
     typename Config<TTreeType>::ParamType param = (typename Config<TTreeType>::ParamType)paramIdx;
     config.setParamToOptimize(param);
 
-    /*
-    if (config.computeLossScore && config.learnZygocity) 
-    {
-        config.setParamToOptimize((typename Config<TTreeType>::ParamType)(rand() % 6));
-    }
-    else if (config.learnZygocity || config.computeLossScore)
-    {
-        config.setParamToOptimize((typename Config<TTreeType>::ParamType)(rand() % 5));
-        if (config.getParamToOptimize() == Config<TTreeType>::nu && config.computeLossScore)
-        {
-            config.setParamToOptimize(Config<TTreeType>::lambda);
-        }
-    }
-    else
-    {
-        config.setParamToOptimize((typename Config<TTreeType>::ParamType)(rand() % 4));
-    }
-    typename Config<TTreeType>::ParamType const & param = config.getParamToOptimize();
-     */
 
     // update the standard deviation of the chosen parameter every 1000 steps
     if (config.getSDTrialsParam(param) == 1000)
@@ -143,11 +111,12 @@ changeParameters(Config<TTreeType> & config)
     // store old param value in case the new one will be rejected
     config.setTmpParam(param, config.getParam(param));
     double oldParamValue = config.getParam(param);
-    
-    // draw new paramter value
+
+    // draw new parameter value
     std::normal_distribution<double> distribution(oldParamValue, config.getSDParam(param));
     double newParamValue = distribution(config.getGenerator());
 
+    // If the zygocity, loss, or parallel rate is changed they might have to be normalized
     if (paramIdx > 3)
     {
         newParamValue = adjusteCoefficient(newParamValue);
@@ -167,16 +136,21 @@ changeParameters(Config<TTreeType> & config)
         newParamValue = adjustMutOverDis(newParamValue);
     }
 
+    // if one of the wild type parameters is influenced the noise scores have to be re-computed
     config.setParam(param, std::abs(newParamValue));
+
     if (param == Config<TTreeType>::ParamType::E_wildOverDis || param == Config<TTreeType>::ParamType::E_wildMean)
     {
         computeNoiseScore(config);
     }
+
+    // Re-compute the log scores with the new values
     computeLogScoresOP(config);
 }
 
+// Choose a tree changing move or the parameter adjustment
 template <typename TTreeType>
-void 
+void
 proposeNextConfiguration(Config<TTreeType> & config)
 {
 	config.setMoveTyp(sampleRandomMove(config.moveProbs));      // pick the move type
@@ -195,7 +169,7 @@ proposeNextConfiguration(Config<TTreeType> & config)
             swapNodeLabels(config);
         }
         else if(config.getMoveTyp()==3){  /*  swap two subtrees  */
-            swapSubtrees(config);    
+            swapSubtrees(config);
         }
         else
         {
@@ -208,26 +182,25 @@ template <typename TTreeType>
 void manageBestTrees(Config<TTreeType> & /*config*/,
                      double & /*bestTreeLogScore*/,
                      double /*currTreeLogScore*/,
-                     TTreeType & /*bestTrees*/,
-                     double /*minDist*/)
+                     TTreeType & /*bestTrees*/)
 {}
 
+// This function checks if the new score is better than any so far computed score and stores it to disk
 inline
 void
 manageBestTrees(Config<SampleTree> & config,
                      double & bestTreeLogScore,
                      double currTreeLogScore,
-                     std::vector<Config<SampleTree>::TGraph> & bestTrees,
-                     std::array<std::tuple<double, double>, 7> & bestParams,
-                     double /*tag*/)
+                     Config<SampleTree>::TGraph & bestTree,
+                     std::array<std::tuple<double, double>, 7> & bestParams)
 {
     if(currTreeLogScore > bestTreeLogScore)
-    {   
+    {
         std::cout << "The new best score is: " <<  currTreeLogScore << std::endl;
         //save the current state to disk
         writeIndex(config, config.bestName);
         bestTreeLogScore = currTreeLogScore;
-        bestTrees[0] = config.getTree();
+        bestTree = config.getTree();
         bestParams = config.params;
 
         //save the current best tree to disk
@@ -241,8 +214,8 @@ manageBestTrees(Config<SampleTree> & config,
 
 // This function is actually doing the sampling of the mutations from the posterior distribution
 inline
-void 
-updateMutInSampleCounts(Config<SampleTree> & config, unsigned it)
+void
+updateMutInSampleCounts(Config<SampleTree> & config)
 {
     Config<SampleTree>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
     static Config<SampleTree>::TAttachmentScores attachmentSumScores;
@@ -252,26 +225,6 @@ updateMutInSampleCounts(Config<SampleTree> & config, unsigned it)
     passDownAttachmentScores.resize(attachmentScores.size());
     passDownAttachmentSumScores.resize(attachmentScores.size());
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
-
-
-    {
-        std::ofstream ofs(config.outFilePrefix +  "_r_" + std::to_string(it) + ".gv");
-        write_graphviz(ofs, config.getTree(), my_label_writer_complete(config.getTree()));
-        ofs.close();
-    }
-
-    {
-        typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>> TGraph;
-        TGraph newTreeBest = simplifyTree(config);
-        std::ofstream ofs2(config.outFilePrefix + "_" + std::to_string(it) + ".gv");
-        write_graphviz(ofs2, newTreeBest,
-                       my_label_writer(newTreeBest, config.indexToPosition, config.cellNames, config.cellColours,
-                                       config.cellClusters));
-    }
-
-    {
-        writeIndex(config);
-    }
 
     // for all mutations
     for (size_t attachment = 0; attachment < config.getNumAttachments(); ++attachment) {
@@ -342,119 +295,102 @@ updateMutInSampleCounts(Config<SampleTree> & config, unsigned it)
     }
 }
 
-template <typename TTreeType>
+template<typename TTreeType>
 double
-runMCMC(std::vector<typename Config<TTreeType>::TGraph> & bestTrees, 
-               std::array<std::tuple<double, double>, 7> & bestParams,
-			   Config<TTreeType> & config,
-			   std::vector<std::vector<unsigned>> & sampleTrees)
-{
+runMCMC(typename Config<TTreeType>::TGraph &bestTree,
+        std::array<std::tuple<double, double>, 7> &bestParams,
+        Config<TTreeType> &config,
+        std::vector<std::vector<unsigned>> &sampleTrees) {
+
+    double bestTreeLogScore = -DBL_MAX;         // initialize best tree score
+    config.updateContainers(0);                 // update the container usage (define which mutations to use currently)
+    computeNoiseScore(config);                  // compute the noise score
+    bestTree = config.getTree();                // init the best tree
+    bestParams = config.params;                 // init the best parameter values
+    double currTreeLogScore = scoreTree(config);// get score of random tree
+
+    // store the tree
+    manageBestTrees(config,
+                    bestTreeLogScore,
+                    currTreeLogScore,
+                    bestTree,
+                    bestParams);
 
 
-	int minDist = INT_MAX;                       // initialize distance to true tree if given
-	double bestTreeLogScore = -DBL_MAX;          // initialize best tree score
+    double propTreeLogScore;                    // the new tree log score
+    double random;                              // variable for random numbers
 
-	for(unsigned r=0; r<config.reps; r++){   // repeat the MCMC, start over with random tree each time, only best score and list of best trees is kept between repetitions
-        
-        config.updateContainers(0);
-        computeNoiseScore(config);
-        
-        bestTrees.resize(1);
-        bestTrees[0] = config.getTree();
-        bestParams = config.params;
+    for (unsigned it = 0; it < config.loops + config.sampleLoops; it++) {        // run the iterations of the MCMC
 
-		double currTreeLogScore = scoreTree(config);       // get score of random tree
+        // Mutations are added in batches of 10% of all mutations 10 times
+        // This function handles the resizing of the corresponding containers
+        if (config.updateContainers(it)) {
+            bestTreeLogScore = -DBL_MAX;
+            config.getTree() = bestTree;
+            currTreeLogScore = scoreTree(config);
+            manageBestTrees(config,
+                            bestTreeLogScore,
+                            currTreeLogScore,
+                            bestTree,
+                            bestParams);
+        }
 
-        manageBestTrees(config,
-                bestTreeLogScore, 
-                currTreeLogScore,
-                bestTrees,
-                bestParams,
-                minDist);
+        // Print some output every 10000 iteration
+        if (it % 10000 == 0) {
+            config.printParameters();
+            std::cout.precision(15);
+            std::cout << "iterations: " << it << std::endl;
+            std::cout << "score: " << currTreeLogScore << std::endl;
+            std::cout << "bestScore: " << bestTreeLogScore << std::endl;
+        }
 
-
-        double propTreeLogScore;
-        double random;
-
-        for(unsigned it=0; it<config.loops + config.sampleLoops; it++){        // run the iterations of the MCMC
-
-            // Mutations are added in batches of 10% of all mutations 10 times
-            // This function handels the resizing of the corresponding containers
-            if (config.updateContainers(it))
-            {
-                minDist = INT_MAX;                       // initialize distance to true tree if given
-                bestTreeLogScore = -DBL_MAX;          // initialize best tree score
-                config.getTree() = bestTrees[0];
-		        currTreeLogScore = scoreTree(config);       // get score of random tree
-                manageBestTrees(config,
-                        bestTreeLogScore, 
-                        currTreeLogScore,
-                        bestTrees,
-                        bestParams,
-                        minDist);
-            }
-        	
-            if(it % 10000 == 0)
-			{ 
-                config.printParameters();
-                std::cout.precision(15);
-                std::cout << "iterations: " << it << std::endl;
-                std::cout << "score: " << currTreeLogScore << std::endl;
-                std::cout << "bestScore: " << bestTreeLogScore << std::endl;
-			}
-            
-            // sample the next tree configuration
-            proposeNextConfiguration(config); 
-            propTreeLogScore = scoreTree(config);
+        // Sample the next tree configuration
+        proposeNextConfiguration(config);
+        // Compute score of new tree
+        propTreeLogScore = scoreTree(config);
 
 
-            random = (double) rand() / RAND_MAX;
-            
-            // the proposed tree is accepted
-            if (random < std::exp((propTreeLogScore-currTreeLogScore)))
-            {
-                // update counter of parameter estimation
-                if (config.getMoveTyp() == 4)
-                    config.setSDCountParam(config.getParamToOptimize(), config.getSDCountParam(config.getParamToOptimize()) + 1);
-                currTreeLogScore  = propTreeLogScore;
+        random = (double) rand() / RAND_MAX;
 
-                manageBestTrees(config,
-                        bestTreeLogScore, 
-                        currTreeLogScore,
-                        bestTrees,
-                        bestParams,
-                        minDist);
-            }
-            else // the proposed tree is rejected
-            {
-                if (config.getMoveTyp() == 4)
-                {
-                    config.resetParameters();
-                }
-                else
-                {
-                    config.getTree().swap(config.getTmpTree());
-                }
-            }
-           
-            // sample from the posterior distribution
-            if (it >= config.loops)
-            {
-                updateMutInSampleCounts(config,it);
-                config.updateParamsCounter();
-                if (config.sampling != 0 && it%config.sampling == 0)
-                {
-                    writeIndex(config, config.samplingName + std::to_string(it) + "/");
-                }
+        // the proposed tree is accepted
+        if (random < std::exp((propTreeLogScore - currTreeLogScore))) {
+            // update counter of parameter estimation
+            if (config.getMoveTyp() == 4)
+                config.setSDCountParam(config.getParamToOptimize(),
+                                       config.getSDCountParam(config.getParamToOptimize()) + 1);
+            currTreeLogScore = propTreeLogScore;
+
+            manageBestTrees(config,
+                            bestTreeLogScore,
+                            currTreeLogScore,
+                            bestTree,
+                            bestParams);
+        } else // the proposed tree is rejected
+        {
+            if (config.getMoveTyp() == 4) {
+                config.resetParameters();
+            } else {
+                config.getTree().swap(config.getTmpTree());
             }
         }
-	} 
-	
- 	return bestTreeLogScore;
+
+        // sample from the posterior distribution
+        if (it >= config.loops) {
+            updateMutInSampleCounts(config);
+            config.updateParamsCounter();
+            if (config.sampling != 0 && it%config.sampling == 0)
+            {
+                writeIndex(config, config.samplingName + std::to_string(it) + "/");
+            }
+        }
+    }
+
+    return bestTreeLogScore;
 }
 
+// Exponentiate and normalize the mutation counts
 inline
-void 
+void
 normalizeMutationCounts(Config<SampleTree> & config)
 {
     for (unsigned int j = 0; j < config.getNumMutations(); ++j)
@@ -462,10 +398,7 @@ normalizeMutationCounts(Config<SampleTree> & config)
         for (unsigned int i = 0; i < config.getNumSamples(); ++i)
         {
             config.mutInSampleCounter[i][j].exp();
-			if (j < config.getNumMutations() - config.numUniqMuts)
-            {
-                config.mutInSampleCounter[i][j] /= static_cast<double>(config.sampleLoops);
-            }
+            config.mutInSampleCounter[i][j] /= static_cast<double>(config.sampleLoops);
 		}
 	}
 }

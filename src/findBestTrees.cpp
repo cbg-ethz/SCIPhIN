@@ -45,181 +45,210 @@
 #include <boost/multi_array.hpp>
 #include <boost/program_options.hpp>
 
+template<typename TTreeType>
+std::vector<double> setMoveProbs(Config<TTreeType> const &config);
 
-template <typename TTreeType>
-int readParameters(Config<TTreeType> & config, int argc, char* argv[]);
+// This function resets weights for the different move operations if the user decides to change the fraction of loops
+// used to learn the parameters of the model.
+// The weights determine how much time is spend in the different move/parameter estimation steps.
+template<typename TTreeType>
+void setMoveProbs(Config<TTreeType> &config, double newParamsEstimateRate) {
 
-template <typename TTreeType>
-std::vector<double> setMoveProbs(Config<TTreeType> const & config);
-
-// This function resets weights for the different move operations
-// The weights determine how much time is spend in the different 
-// move/parameter estimation steps.
-template <typename TTreeType>
-void setMoveProbs(Config<TTreeType> & config, double newParamsEstimateRate){
-
-	config.moveProbs[0] = config.moveProbs[0] / (1.0 - config.moveProbs[3]);
-	config.moveProbs[0] = config.moveProbs[0] * (1.0 - newParamsEstimateRate);
-	config.moveProbs[1] = config.moveProbs[1] / (1.0 - config.moveProbs[3]);
-	config.moveProbs[1] = config.moveProbs[1] * (1.0 - newParamsEstimateRate);
-	config.moveProbs[2] = config.moveProbs[2] / (1.0 - config.moveProbs[3]);
-	config.moveProbs[2] = config.moveProbs[2] * (1.0 - newParamsEstimateRate);
+    config.moveProbs[0] = config.moveProbs[0] / (1.0 - config.moveProbs[3]);
+    config.moveProbs[0] = config.moveProbs[0] * (1.0 - newParamsEstimateRate);
+    config.moveProbs[1] = config.moveProbs[1] / (1.0 - config.moveProbs[3]);
+    config.moveProbs[1] = config.moveProbs[1] * (1.0 - newParamsEstimateRate);
+    config.moveProbs[2] = config.moveProbs[2] / (1.0 - config.moveProbs[3]);
+    config.moveProbs[2] = config.moveProbs[2] * (1.0 - newParamsEstimateRate);
     config.moveProbs[3] = 1 - config.moveProbs[0] - config.moveProbs[1] - config.moveProbs[2];
 
-	return;
+    return;
 }
 
 
 // Function to read the parameters from the command line.
-template <typename TTreeType>
-int readParameters(Config<TTreeType> & config, int argc, char* argv[]){
+template<typename TTreeType>
+int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
 
     boost::program_options::options_description generic("Generic options");
-	generic.add_options()("help,h", "Print this help");
+    generic.add_options()("help,h", "Print this help");
 
-    std::string lastName; // Dummy for a deprecated option value
-	// configuration options
-	boost::program_options::options_description parseConfig("Configuration");
-	parseConfig.add_options()
-		("in", boost::program_options::value<decltype(config.bamFileNames)>(&config.bamFileNames), "Name of the BAM files used to create the mpileup.")
-		("il", boost::program_options::value<decltype(config.loadName)>(&config.loadName), "Directory from which to read intermediate results.")
-		("ex", boost::program_options::value<decltype(config.exclusionFileName)>(&config.exclusionFileName), "File name of exclusion list (VCF format), containing loci which should be ignored.")
-        ("me", boost::program_options::value<decltype(config.mutationExclusionFileName)>(&config.mutationExclusionFileName), "File name of mutations to exclude during the sequencing error rate estimation (VCF format).")
-        ("inc", boost::program_options::value<decltype(config.variantInclusionFileName)>(&config.variantInclusionFileName), "File name of inclusion list (VCF format) containing Variants (CHROM, POS, REF, ALT) that should be included.")
-		(",o", boost::program_options::value<decltype(config.outFilePrefix)>(&config.outFilePrefix), "Prefix of output files.")
-		("ol", boost::program_options::value<decltype(config.lastName)>(&lastName), "This option is deprecated. The index will be saved in a folder specified with -o in \"last_index\". If desired, one can continue from here to explore more search space.")
-		("sa", boost::program_options::value<decltype(config.sampling)>(&config.sampling), "Sampling step. If a value x different from 0 is specified, every x iteration, after the burn in phase, an index will be writen to disk to provide a posterior sampling. [0]")
-		//(",r", boost::program_options::value<decltype(config.reps)>(&config.reps), "Number of repetitions. [1]")
-		(",l", boost::program_options::value<decltype(config.loops)>(&config.loops), "Maximal number of iterations before sampling form the posterior distribution of the mutation to cell assignment. [1000000]")
-		("ls", boost::program_options::value<decltype(config.sampleLoops)>(&config.sampleLoops), "Number of iterations in which the mutation to cell assignment is sampled. [100000]")
-		("lz", boost::program_options::value<decltype(config.learnZygocity)>(&config.learnZygocity), "Set to 1 if zygosity should be learned. The zygosity rate is the fraction of mutations which are homozygous in all cells. [0]")
-		("zyg", boost::program_options::value<double>(&std::get<0>(config.params[Config<TTreeType>::E_nu])), "Zygosity rate. [0]")
-		("pr", boost::program_options::value<decltype(config.priorMutationRate)>(&config.priorMutationRate), "Prior mutation rate [0.0001].")
-		("uniq,u", boost::program_options::value<decltype(config.uniqTreshold)>(&config.uniqTreshold), "Mark loci with this number of cells being mutated as \"PASS\". [1]")
-		(",e", boost::program_options::value<decltype(config.paramsEstimateRate)>(&config.paramsEstimateRate), "Parameter estimation rate, i.e. the fraction of loops used to estimate the different parameters. [0.2]")
-        ("ur",boost::program_options::value<double>(&std::get<1>(config.dataUsageRate)), "Data usage rate increment steps. In order to speed up the algorithm one can choose to iteratively add more and more of the candidate loci while learning the tree model. For example, 0.1 would mean to start with 10% of the data, then use 20%, and so on. Per default, all data is used from the start. [1]")
-		("seed", boost::program_options::value<decltype(config.fixedSeed)>(&config.fixedSeed), "Seed for the random number generator. [42]")
-		(",t", boost::program_options::value<decltype(config.scoreType)>(&config.scoreType), "Tree score type [m (max), s (sum)]. [s]")
-		("wildMean", boost::program_options::value<double>(&std::get<0>(config.params[2])), "Mean error rate. If the sequencing error rate should not be learned \"--ese 0\" one can specify it. [0.001]")
-		("wildOverDis", boost::program_options::value<double>(&std::get<0>(config.params[0])), "Initial overdispersion for wild type. The overdispersion is learned during the tree traversal. [100]")
-		("mutationOverDis", boost::program_options::value<double>(&std::get<0>(config.params[1])), "Initial overdispersion for mutant type. The overdispersion is learned during the tree traversal.[2]")
-		("ese", boost::program_options::value<decltype(config.estimateSeqErrorRate)>(&config.estimateSeqErrorRate), "Estimate the sequencing error rate. [1]")
-		("sub", boost::program_options::value<decltype(config.sub)>(&config.sub), "PCR substitution rate. An error early during the PCR amplification can result in high allele fractions. These are typically filtered out by requiring at least two cells to be mutated. However, sometimes the PCR error in one cell is a real mutation in others. If in such a scenario the coverage for the cell with the PCR error is high, SCIPhI will introduce false positives. This can be avoided by specifying the PCR error rate. As these events are rather unlikely very small values, such as 0.0000001 should be chosen. In practice 0 works very well.  [0]")
-		("md", boost::program_options::value<decltype(config.minDist)>(&config.minDist), "Window size in which only x (see option \"--mmw\") mutations are allowed to be present. Some sequences are prone to produce sequencing errors, which can be avoided by specifying a range in which only x mutations are allowed. [1]")
-		("mmw", boost::program_options::value<decltype(config.maxMutPerWindow)>(&config.maxMutPerWindow), "Maximum number of mutations allowed per window. [1]")
-		("cwm", boost::program_options::value<decltype(config.numCellWithMutationMin)>(&config.numCellWithMutationMin), "Number of tumor cells required to have a mutation in order to be called. [2]")
-		("mnp", boost::program_options::value<decltype(config.minNumCellsPassFilter)>(&config.minNumCellsPassFilter), "Number of cells which need to pass the filters described below. [2]")
-		("mc", boost::program_options::value<decltype(config.minCoverage)>(&config.minCoverage), "Minimum coverage required per cell. [1]")
-		("ms", boost::program_options::value<decltype(config.minSupport)>(&config.minSupport), "Minimum number of reads required to support the alternative. [3]")
-		("mf", boost::program_options::value<decltype(config.minFreq)>(&config.minFreq), "Minimum required frequency of reads supporting the alternative per cell. [0]")
-		("mff", boost::program_options::value<decltype(config.meanFilter)>(&config.meanFilter), "Mean of acceptable variant allele frequency across all cells for a specific locus. Mapping artifacts may result in low allele frequencies across cells. In order to filter these events out we apply a log-likelihood ratio test where the sequencing error model has a mean of this value. [0.25]")
-		("bns", boost::program_options::value<decltype(config.maxSupInControlBulk)>(&config.maxSupInControlBulk), "Loci with up to this number of alternative supporting reads in the bulk control sample will be skipped as germline. [2]")
-		("bnc", boost::program_options::value<decltype(config.minCovInControlBulk)>(&config.minCovInControlBulk), "Minimum required coverage of reads in the bulk control sample. [6]")
-		("ncf", boost::program_options::value<decltype(config.normalCellFilter)>(&config.normalCellFilter), "Normal cell filter. Currently there are three options: (0) Do not use the normal cells for filtering; (1) use a simple filtering scheme excluding mutations if the probability of being mutated is higher than not being mutated for any cell independently; (2) filter mutations where the probability that at least one cell is mutated is higher than no cell is mutated. Note that in contrast to (1) the cells are not independent and cells with no alternative support need to be explained via dropout events. [1]")
-		("mnc", boost::program_options::value<decltype(config.maxNumberNormalCellMutated)>(&config.maxNumberNormalCellMutated), "Maximum number of control cells allowed to be mutated. [0]")
-		("unc", boost::program_options::value<decltype(config.useNormalCellsInTree)>(&config.useNormalCellsInTree), "Use normal cells for tree reconstruction. [false]")
-		("ll", boost::program_options::value<decltype(config.computeLossScore)>(&config.computeLossScore), "Compute the loss score = allow a mutation to be lost in a subtree.")
-		("lp", boost::program_options::value<decltype(config.computeParallelScore)>(&config.computeParallelScore), "Compute the parallel score = allow a mutation to be acquired twice independently in the tree.")
-		//("mspa", boost::program_options::value<double>(&config.clamPrior[0]), "The alpha parameter of the beta function used as prior on the rate of loosing a chromosome after some mutation occurred.")
-		//("mspb", boost::program_options::value<double>(&config.clamPrior[1]), "The beta parameter of the beta function used as prior on the rate of loosing a chromosome after some mutation occurred.")
-		("ese", boost::program_options::value<decltype(config.estimateSeqErrorRate)>(&config.estimateSeqErrorRate), "Estimate the sequencing error rate. [1]");
+    // configuration options
+    boost::program_options::options_description parseConfig("Configuration");
+    parseConfig.add_options()
+            ("il", boost::program_options::value<decltype(config.loadName)>(&config.loadName),
+             "Directory from which to read intermediate results.")
+            ("ol", boost::program_options::value<decltype(config.saveName)>(&config.saveName),
+             "Directory to store intermediate results.")
+            ("ex", boost::program_options::value<decltype(config.exclusionFileName)>(&config.exclusionFileName),
+             "Filename of exclusion list (VCF format).")
+            ("me", boost::program_options::value<decltype(config.mutationExclusionFileName)>(
+                    &config.mutationExclusionFileName),
+             "Filename of mutations to exclude during the sequencing error rate estimation (VCF format).")
+            ("in", boost::program_options::value<decltype(config.cellInfo)>(&config.cellInfo),
+             "Name of the BAM files used to create the mpileup.")
+            (",o", boost::program_options::value<decltype(config.outFilePrefix)>(&config.outFilePrefix),
+             "Prefix of output files.")
+            (",l", boost::program_options::value<decltype(config.loops)>(&config.loops),
+             "Maximal number of iterations per repetition. [1000000]")
+            ("lz", boost::program_options::value<decltype(config.learnZygocity)>(&config.learnZygocity),
+             "Set to 1 if zygosity should be learned. [0]")
+            ("zyg", boost::program_options::value<double>(&std::get<0>(config.params[Config<TTreeType>::E_nu])),
+             "Zygosity rate. [0]")
+            ("ls", boost::program_options::value<decltype(config.sampleLoops)>(&config.sampleLoops),
+             "Number of sample iterations. [100000]")
+            ("pr", boost::program_options::value<decltype(config.priorMutationRate)>(&config.priorMutationRate),
+             "Prior mutation rate [0.0001].")
+            ("uniq,u", boost::program_options::value<decltype(config.uniqTreshold)>(&config.uniqTreshold),
+             "Filter mutations showing up to this number of cells from the VCF. [0]")
+            (",e", boost::program_options::value<decltype(config.paramsEstimateRate)>(&config.paramsEstimateRate),
+             "Paramter estimation rate, i.e. the fraction of loops used to estimate the different parameters. [0.2]")
+            ("ur", boost::program_options::value<double>(&std::get<1>(config.dataUsageRate)),
+             "Data usage rate increment steps. [0.1]")
+            ("seed", boost::program_options::value<decltype(config.fixedSeed)>(&config.fixedSeed),
+             "Seed for the random number generator. [42]")
+            (",t", boost::program_options::value<decltype(config.scoreType)>(&config.scoreType),
+             "Tree score type [m (max), s (sum)]. [s]")
+            ("wildOverDis", boost::program_options::value<double>(&std::get<0>(config.params[0])),
+             "Overdispersion for wild type. [100]")
+            ("mutationOverDis", boost::program_options::value<double>(&std::get<0>(config.params[1])),
+             "Overdispersion for mutant type. [2]")
+            ("wildMean", boost::program_options::value<double>(&std::get<0>(config.params[2])),
+             "Mean error rate. [0.001]")
+            ("md", boost::program_options::value<decltype(config.windowSize)>(&config.windowSize),
+             "Window size for maximum number of allowed mutations. [1]")
+            ("sub", boost::program_options::value<decltype(config.sub)>(&config.sub), "PCR substitution rate. [0]")
+            ("mmw", boost::program_options::value<decltype(config.maxMutPerWindow)>(&config.maxMutPerWindow),
+             "Maximum number of mutations allowed per window. [1]")
+            ("cwm",
+             boost::program_options::value<decltype(config.numCellWithMutationMin)>(&config.numCellWithMutationMin),
+             "Number of cells requiered to have a mutation in order to be called. [2]")
+            ("ncf", boost::program_options::value<decltype(config.normalCellFilter)>(&config.normalCellFilter),
+             "Normal cell filter. Currently there are three options: (0) Do not use the normal cells for filtering; "
+             "(1) use a simple filtering scheme excluding mutations if the probability of being mutated is higher than "
+             "not being mutated for any cell independently; (2) filter mutations where the probility that at least one "
+             "cell is mutated is higher than no cell is mutated. Note that in contrast to (1) the cells are not "
+             "independent and cells with no alternative support need to be explained via dropout events. [2]")
+            ("mc", boost::program_options::value<decltype(config.minCoverage)>(&config.minCoverage),
+             "Minimum coverage required per cell. [1]")
+            ("mnp",
+             boost::program_options::value<decltype(config.minNumCellsPassFilter)>(&config.minNumCellsPassFilter),
+             "Number of cells which need to pass the filters.")
+            ("ms", boost::program_options::value<decltype(config.minSupport)>(&config.minSupport),
+             "Minimum number of reads required to support the alternative. [0]")
+            ("mf", boost::program_options::value<decltype(config.minFreq)>(&config.minFreq),
+             "Minimum required frequency of reads supporting the alternative per cell. [0]")
+            ("mff", boost::program_options::value<decltype(config.meanFilter)>(&config.meanFilter),
+             "Mean of acceptable variant allele frequency across all cells for a specific locus. [0.25]")
+            ("bns", boost::program_options::value<decltype(config.maxSupInControlBulk)>(&config.maxSupInControlBulk),
+             "Loci with up to this number of alternative supporting reads in the bulk control sample will be skiped. "
+             "[2]")
+            ("bnc", boost::program_options::value<decltype(config.minCovInControlBulk)>(&config.minCovInControlBulk),
+             "Minimum required coverage of reads in the bulk control sample. [6]")
+            ("mnc", boost::program_options::value<decltype(config.maxNumberNormalCellMutated)>(
+                    &config.maxNumberNormalCellMutated), "Maximum number of control cells allowed to be mutated. [0]")
+            ("unc", boost::program_options::value<decltype(config.useNormalCellsInTree)>(&config.useNormalCellsInTree),
+             "Use normal cells for tree reconstruction. [false]")
+            ("ll", boost::program_options::value<decltype(config.computeLossScore)>(&config.computeLossScore),
+             "Compute the loss score = allow a mutation to be lost in a subtree.")
+            ("lp", boost::program_options::value<decltype(config.computeParallelScore)>(&config.computeParallelScore),
+             "Compute the parallel score = allow a mutation to be acquired twice independently in the tree.")
+            ("ese", boost::program_options::value<decltype(config.estimateSeqErrorRate)>(&config.estimateSeqErrorRate),
+             "Estimate the sequencing error rate. [1]");
 
-   // hidden options, i.e., input files
-	boost::program_options::options_description hidden("Hidden options");
-	hidden.add_options()
-		("input-file", boost::program_options::value<std::string>()->required(), "input files")
-		("smt", boost::program_options::value<decltype(config.mutToMaxName)>(&config.mutToMaxName), "Store to save mutations distribution of MAP tree.");
+    // hidden options, i.e., input mpileup
+    boost::program_options::options_description hidden("Hidden options");
+    hidden.add_options()
+            ("input-mpileup", boost::program_options::value<std::string>()->required(), "input mpileup");
 
-	boost::program_options::options_description cmdline_options;
-	cmdline_options.add(generic).add(parseConfig).add(hidden);
-	boost::program_options::options_description visible("Allowed options");
-	visible.add(generic).add(parseConfig);
-	boost::program_options::positional_options_description p;
-	p.add("input-file", -1);
-	boost::program_options::variables_map global_options;
+    boost::program_options::options_description cmdline_options;
+    cmdline_options.add(generic).add(parseConfig).add(hidden);
+    boost::program_options::options_description visible("Allowed options");
+    visible.add(generic).add(parseConfig);
+    boost::program_options::positional_options_description p;
+    p.add("input-file", -1);
+    boost::program_options::variables_map global_options;
 
-	/* 0.0) parse program options */
-	try
-	{
-		boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(cmdline_options).positional(p).run(), global_options);
+    /* parse program options */
+    try {
+        boost::program_options::store(boost::program_options::command_line_parser(argc, argv).
+                options(cmdline_options).
+                positional(p).
+                run(), global_options);
 
-		// show help options
-		if (global_options.count("help"))
-		{
-			std::cout << visible << '\n';
-			exit(EXIT_SUCCESS);
-		}
+        // show help options
+        if (global_options.count("help")) {
+            std::cout << visible << '\n';
+            exit(EXIT_SUCCESS);
+        }
 
-		boost::program_options::notify(global_options);
-	}
-	catch (boost::program_options::required_option& e)
-	{
-		if (e.get_option_name() == "--input-file")
-		{
-			std::cerr << "ERROR: You have provided no input files. sciphi requires at least one input file.\n";
-		}
-		else
-		{
-			std::cerr << "ERROR: " << e.what() << '\n';
-		}
-		exit(EXIT_FAILURE);
-	}
-	catch (boost::program_options::error& e)
-	{
-		std::cerr << "ERROR: " << e.what() << '\n';
-		exit(EXIT_FAILURE);
-	} 
+        boost::program_options::notify(global_options);
+    }
+        // an input file is missing
+    catch (boost::program_options::required_option &e) {
+        if (e.get_option_name() == "--input-mpileup") {
+            std::cerr << "ERROR: You have provided no input mpileup file.\n";
+        } else {
+            std::cerr << "ERROR: " << e.what() << '\n';
+        }
+        exit(EXIT_FAILURE);
+    }
+        // some error happend while reading the parameters
+    catch (boost::program_options::error &e) {
+        std::cerr << "ERROR: " << e.what() << '\n';
+        exit(EXIT_FAILURE);
+    }
 
-    if (global_options.count("-e"))
-    {
+    // Reset the weights for the tree move operations and parameter estimation if the user resets the parameter
+    // estimation rate.
+    if (global_options.count("-e")) {
         setMoveProbs(config, config.paramsEstimateRate);
     }
-        
+
     config.inFileName = global_options["input-file"].as<std::string>();
     config.bestName = config.outFilePrefix + "/best_index/";
     config.lastName = config.outFilePrefix + "/last_index/";
     config.samplingName = config.outFilePrefix + "/sample_index";
 
+    // backup the initial parameters
+    // Note: At all times a copy of all parameters and the tree structure is kept, such that in case the new tree in
+    // the mcmc traversal is rejected the origianl value can be retained.
     std::get<1>(config.params[0]) = std::get<0>(config.params[0]);
     std::get<1>(config.params[1]) = std::get<0>(config.params[1]);
     std::get<1>(config.params[2]) = std::get<0>(config.params[2]);
     std::get<1>(config.params[3]) = std::get<0>(config.params[3]);
     std::get<1>(config.params[4]) = std::get<0>(config.params[4]);
     std::get<1>(config.params[5]) = std::get<0>(config.params[5]);
-	
+
     return 0;
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char *argv[]) {
+
     typedef Config<SampleTree> TConfig;
-	TConfig config{};
-	
+    TConfig config{};
+
     // read the command line arguments
     std::cout << "SCIPhI v" << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << std::endl;
     std::cout << "Reading the config file: ... " << std::flush;
-	readParameters(config, argc, argv);
+    readParameters(config, argc, argv);
     std::cout << "done!" << std::endl;
 
     /* initialize the random number generator, either with a user defined seed, or a random number */
-	if(config.fixedSeed == static_cast<unsigned>(-1)){
-		initRand();                                  // initialize random number generator
-	}
-	else{
-		srand(config.fixedSeed);
-	}
+    if (config.fixedSeed == static_cast<unsigned>(-1)) {
+        initRand();
+    } else {
+        srand(config.fixedSeed);
+    }
 
-
-    // extract the mutation data from the files
-    if (config.loadName == "" )
-    {
+    // if the user wants to read a stored index rather than start a new analysis extract the mutation data from the
+    // index files
+    if (config.loadName == "") {
         std::cout << "Reading the mpileup file: " << std::flush;
         getData(config);
         createInitialTree(config);
         std::cout << "done!" << std::endl;
-    }
-    else
-    {
+    } else {
         std::cout << "Reading the stored results file: " << std::flush;
         readCellNames(config);
         readGraph(config);
@@ -227,8 +256,12 @@ int main(int argc, char* argv[])
         std::cout << "done!" << std::endl;
     }
 
-    // After the data is read the log scores need to be computed.
-	computeLogScoresOP(config);
+    // After the data is read the log scores need to be initialised.
+    computeLogScoresOP(config);
+
+    // paramsCounter is a data structure to store the model parameters in each iteration of the posterior sampling.
+    // It is used to provide the median, mean, and sd of each parameter
+    // Initialize the vectors of paramsCounter
     config.paramsCounter.resize(0);
 
     if (config.mutToMaxName != "")
@@ -238,28 +271,45 @@ int main(int argc, char* argv[])
         return 0;
     }
     
-	std::vector<typename TConfig::TGraph> optimalTrees;         // list of all optimal trees (as ancestor matrices)
-    std::array<std::tuple<double, double>, 7> optimalParams;    // The optimal parameters
-	std::vector<std::vector<unsigned>> sampleTrees;             // list where tree samples are stored, if sampling based on posterior distribution is needed
+    // As with the paramsCounter (see above) every mutation to cell probability during the posterior sampling is stored.
+    config.initMutInSampleCounter();
 
-	// Find best scoring trees by MCMC
-    config.initMutInSampleCounter(); 
-    runMCMC(optimalTrees, optimalParams, config, sampleTrees);
+    //optimal tree
+    typename TConfig::TGraph optimalTree;
+    // optimal parameters
+    std::array<std::tuple<double, double>, 7> optimalParams;
+    // list where tree samples are stored, if sampling based on posterior distribution is needed
+    std::vector<std::vector<unsigned>> sampleTrees;
+
+    // Find best scoring trees by MCMC
+    runMCMC(optimalTree, optimalParams, config, sampleTrees);
 
     // Write the results to disk
-    printMutation2SampleAssignment(config, config.outFilePrefix + "_mut2Sample.tsv");
     normalizeMutationCounts(config);
     printMutationProbability(config, config.outFilePrefix + ".probs");
     writeParameters(config, config.outFilePrefix + ".params.txt");
     writeVCF(config, config.outFilePrefix + ".vcf");
-    
+
+    // Write the index of the final iteration to disk, such that it can be used to continue from.
     writeFinalIndex(config);
 
+    // Get the best tree information
     typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>> TGraph;
-    config.getTree() = optimalTrees[0];
+    config.getTree() = optimalTree;
     config.params = optimalParams;
     computeLogScoresOP(config);
+
+    // Write the mutation to node assignment to disk (note: this is the most likely assignment (MAP))
+    printMutation2SampleAssignment(config, config.outFilePrefix + "_mut2Sample.tsv");
+
+    // write a simplified tree, where the nodes are summarized if possible, to disk
     TGraph newTreeBest = simplifyTree(config);
     std::ofstream ofs2(config.outFilePrefix + ".gv");
-    write_graphviz(ofs2, newTreeBest, my_label_writer(newTreeBest, config.indexToPosition, config.cellNames, config.cellColours, config.cellClusters));
+    write_graphviz(ofs2,
+            newTreeBest,
+            my_label_writer(newTreeBest,
+                    config.indexToPosition,
+                    config.cellNames,
+                    config.cellColours,
+                    config.cellClusters));
 }

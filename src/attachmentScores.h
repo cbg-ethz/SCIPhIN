@@ -50,33 +50,41 @@ struct AttachmentScore {
 
 
     enum Type {
-        E_hetScore = 0,                     // all cells below the node are heterozygous
-        E_homScore = 1,                     // all cells below the node are homozygous
-        E_hetSumScore = 2,                  // the sum of all hetScores below the node
-        E_lossAltScore = 3,                 // a mutation is gained in the node and the mutated/altered allele is lost in any
-                                            // node below
-        E_lossAltRScore = 4,                // a mutation is gained in the node and the mutated/altered allele is lost in any
-                                            // node below except for the child nodes
-        E_lossWildScore = 5,                // a mutation is gained in the node and the reference allele is lost in any node below
-                                            // except for the child nodes
-        E_lcaScore = 6,                     // probability that the node is the lowest common ancestor of two independent mutation
-                                            // events
-        E_childHetSumScore = 7,             // the probability that one of the child nodes is mutated
-        E_lcaRScore = 8,                   // probability that the node is the lowest common ancestor of two independent mutation
-                                            // events with additional restrictions
-        E_grantChildHetSumScore = 9,       // probability of a mutation below the current node, but not in itself
-                                            // or the child nodes
-        E_finalScore = 10,                  // final combined score
-        E_numAltRPoss = 11,                 // number of different possibilities to loose the current mutation (but not directly in
-                                            // the child nodes
-        E_numInnerNodes = 12,               // number of inner nodes below the current one
-        E_numInnerChildNodes = 13,          // number of child nodes that are inner nodes (0, 1, or 2)
-        E_numLcaRPoss = 14                 // number of possibilities for a parallel mutation below the current node
-
-
+                // all cells below the node are heterozygous
+                E_hetScore = 0,
+                // all cells below the node are homozygous
+                E_homScore = 1,
+                // the sum of all hetScores below the node
+                E_hetSumScore = 2,
+                // a mutation is gained in the node and the mutated/altered allele is lost in any node below
+                E_lossAltScore = 3,
+                // a mutation is gained in the node and the mutated/altered allele is lost in any node below except
+                // for the child nodes
+                E_lossAltRScore = 4,
+                // a mutation is gained in the node and the reference allele is lost in any node below
+                E_lossWildScore = 5,
+                // probability that the node is the lowest common ancestor of two independent mutation events
+                E_lcaScore = 6,
+                // the probability that one of the child nodes is mutated
+                E_childHetSumScore = 7,
+                // probability that the node is the lowest common ancestor of two independent mutation events with
+                // additional restrictions
+                E_lcaRScore = 8,
+                // probability of a mutation below the current node, but not in itself or the child nodes
+                E_grantChildHetSumScore = 9,
+                // final combined score
+                E_finalScore = 10,
+                // number of different possibilities to loose the current mutation (but not directly in the child nodes
+                E_numAltRPoss = 11,
+                // number of inner nodes below the current one
+                E_numInnerNodes = 12,
+                // number of child nodes that are inner nodes (0, 1, or 2)
+                E_numInnerChildNodes = 13,
+                // number of possibilities for a parallel mutation below the current node
+                E_numLcaRPoss = 14
     };
 
-    // init everything to -INFINITY because we are doing the computation in 
+    // init everything but the counter to -INFINITY because we are doing the computation in
     // log space and exp(-INFINITY) = 0
     AttachmentScore() :
             attachmentScore({{-INFINITY,
@@ -229,17 +237,7 @@ struct AttachmentScore {
         return this->attachmentScore[E_finalScore];
     }
 
-    AttachmentScore &operator-=(AttachmentScore &rightSide) {
-        for (unsigned i =0; i < this->attachmentScore.size(); ++i)
-        {
-            this->attachmentScore[i] -= rightSide.attachmentScore[i];
-        }
-        return *this;
-    }
-
-    // this function takes two scores in log space, exponentiates them and 
-    // returns the log of the sum
-
+    // this function takes two scores in log space, exponentiates them and returns the log of the sum
     void addInRealSpace(AttachmentScore const &rightSide) {
         for (unsigned i = 0; i < 11; ++i) {
             this->attachmentScore[i] = addLogProb(this->attachmentScore[i], rightSide.attachmentScore[i]);
@@ -256,6 +254,10 @@ struct AttachmentScore {
         return *this;
     }
 
+    // This function computes the contribution of the different mutation types. In other words: How much of the total
+    // score is contributed by the heterozygous, the homozygous, the loss, and the parallel model. Each contribution
+    // is the product of three parts: its likelihood, its model parameter value, and the inverse of the number of
+    // different placement possibilities
     template <typename TTreeType>
     std::array<double, 5> computeMutTypeContribution(Config<TTreeType> const & config,
             AttachmentScore const & sumScore,
@@ -266,8 +268,12 @@ struct AttachmentScore {
         double logPLoss = -INFINITY;
         double logPPara = -INFINITY;
         double logPD = -INFINITY;
+
+        // The weight of the heterozygous score depends on the weights of the other mutation types. We initialize it
+        // to one and substrat the other contributions afterwards.
         double hetWeight = 1.0;
 
+        // Compute the homozygous contribution
         if (config.learnZygocity)
         {
             unsigned numInnerNodes = config.getNumSamples() - 1;
@@ -277,6 +283,8 @@ struct AttachmentScore {
             hetWeight -= config.getParam(Config<TTreeType>::E_nu);
         }
 
+        // Compute the loss contribution. THe loss contribution consists of the model where the reference allele is
+        // lost and where the alternative allele is lost
         if (config.computeLossScore)
         {
             double lossR = this->lossWildScore() - std::log(sumScore.numInnerNodes());
@@ -286,6 +294,7 @@ struct AttachmentScore {
             hetWeight -= config.getParam(Config<TTreeType>::E_lambda);
         }
 
+        // Compute the parallel contribution.
         if (config.computeParallelScore)
         {
             logPPara = this->lcaRScore()
@@ -294,6 +303,7 @@ struct AttachmentScore {
             hetWeight -= config.getParam(Config<TTreeType>::E_parallel);
         }
 
+        // Finally compute the heterozygous contribution.
         unsigned numNodes = config.getNumSamples() * 2 - 1;
         logPHet = this->hetScore()
                   - std::log(numNodes)
@@ -305,7 +315,7 @@ struct AttachmentScore {
         return res;
     }
 
-    // this functions computes the final score of an attachment point
+    // This functions computes the final score of an attachment point
     template <typename TTreeType>
     void computeFinalScore(Config<TTreeType> const & config,
             AttachmentScore const & sumScore,
@@ -314,7 +324,7 @@ struct AttachmentScore {
         static std::array<double, 5> res;
         this->computeMutTypeContribution(config, sumScore, res);
 
-        // if the node is a leaf just return the weighted hetero score
+        // If the node is a leaf just return the weighted hetero score
         if (isLeaf) {
             this->finalScore() = this->hetScore() - std::log(config.getNumSamples() * 2 - 1);
             return;
@@ -323,25 +333,7 @@ struct AttachmentScore {
         this->finalScore() = addLogProb(addLogProb(addLogProb(res[0],res[1]),res[2]),res[3]);
         return;
     }
-
-    /*
-     void setMinusInfinity() {
-        for (unsigned i = 0; i < this->attachmentScore.size(); ++i) {
-            this->attachmentScore[i] = -INFINITY;
-        }
-    }
-     */
 };
-
-template<unsigned N>
-std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
-    os << obj.hetScore() << "|" << obj.homScore();
-    if (N == 3) {
-        return os << "|" << obj.finalScore();
-    }
-    os << "|" << obj.lossWildScore() << "|" << obj.lossAltScore() << "|" << obj.finalScore();
-    return os;
-}
 
 std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
     os << "hetScore:         " << obj.hetScore() << "\n";
@@ -357,14 +349,6 @@ std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
     os << "numAltRPoss:      " << obj.numAltRPoss() << "\n";
     os << "finalScore:       " << obj.finalScore() << "\n";
     return os;
-}
-
-AttachmentScore operator+(AttachmentScore &leftSide, AttachmentScore &rightSide) {
-    AttachmentScore result;
-    for (unsigned i = 0; i < 8; ++i) {
-        result.attachmentScore[i] = leftSide.attachmentScore[i] + rightSide.attachmentScore[i];
-    }
-    return result;
 }
 
 /*
@@ -504,6 +488,9 @@ struct AttachmentScores {
         return this->attachmentScores[attachPoint].childHetSumScore();
     }
 
+    // We divide by the wild type score. In doing so we do not need to account for it in every computation because
+    // the log of the quotient for the wild type score would be 0. However, when computing the tree score we need to
+    // multiply the wild type scores.
     void computeLogHetScoreLeaf(unsigned attachPoint, double wtScore, double hetScore) {
         this->hetScore(attachPoint) = hetScore - wtScore;
     }
@@ -512,6 +499,9 @@ struct AttachmentScores {
         this->hetScore(attachPoint) = hetScoreLeft + hetScoreRigth;
     }
 
+    // We divide by the wild type score. In doing so we do not need to account for it in every computation because
+    // the log of the quotient for the wild type score would be 0. However, when computing the tree score we need to
+    // multiply the wild type scores.
     void computeLogHomScoreLeaf(unsigned attachPoint, double wtScore, double homScore) {
         this->homScore(attachPoint) = homScore - wtScore;
     }
@@ -541,54 +531,73 @@ struct AttachmentScores {
         unsigned lN = target(*it, tree);                // left node id
         unsigned rN = target(*(it + 1), tree);          // right node id
 
-        double leftContAltLos = -INFINITY;
-        // loss wild type chromosome
-        double leftContWildLos = -INFINITY;
-        // loss alternative chromosome
-        double rightContAltLos = -INFINITY;
-        // loss wild type chromosome
-        double rightContWildLos = -INFINITY;
+
+        double leftContAltLos = -INFINITY;              // left child node alternative allele lost contribution
+        double leftContWildLos = -INFINITY;             // left child node wild type allele lost contribution
+        double rightContAltLos = -INFINITY;             // right child node alternative allele lost contribution
+        double rightContWildLos = -INFINITY;            // right child node wild type allele lost contribution
 
         bool computeValues = false;
 
-        // check if child nodes are inner node
+        // Check if left child node is inner node and compute the corresponding contributions
         if (tree[lN].sample == -1)
         {
-            // loss alternative chromosome
+            // Loss alternative chromosome
+            // Combine the likelihoods from the left child node, which consists of the likelihood that the allele was
+            // lost below the left child node or directly in the left child node. The combined score has to be
+            // multiplied by the probability that the right subtree is heterozygous
             leftContAltLos = addLogProb(this->lossAltScore(lN), 0) + this->hetScore(rN);
-            // loss wild type chromosome
+
+            // Loss wild type chromosome
+            // Combine the likelihoods from the left child node, which consists of the likelihood that the allele was
+            // lost below the left child node or directly in the left child node. The combined score has to be
+            // multiplied by the probability that the right subtree is heterozygous
             leftContWildLos = addLogProb(this->lossWildScore(lN), this->homScore(lN)) + this->hetScore(rN);
 
+            // Count the number of different possibilities
             this->numInnerNodes(attachPoint) = this->numInnerNodes(lN) + 1;
-
             this->numAltRPoss(attachPoint) = this->numInnerNodes(lN);
 
             computeValues = true;
 
         }
+
+        // Check if right child node is inner node and compute the corresponding contributions
         if (tree[rN].sample == -1)
         {
-            // loss alternative chromosome
+            // Loss alternative chromosome
+            // Combine the likelihoods from the right child node, which consists of the likelihood that the allele was
+            // lost below the right child node or directly in the right child node. The combined score has to be
+            // multiplied by the probability that the left subtree is heterozygous
             rightContAltLos = addLogProb(this->lossAltScore(rN), 0) + this->hetScore(lN);
-            // loss wild type chromosome
+
+            // Loss wild type chromosome
+            // Combine the likelihoods from the right child node, which consists of the likelihood that the allele was
+            // lost below the right child node or directly in the right child node. The combined score has to be
+            // multiplied by the probability that the left subtree is heterozygous
             rightContWildLos = addLogProb(this->lossWildScore(rN), this->homScore(rN)) + this->hetScore(lN);
 
+            // Count the number of different possibilities
             this->numInnerNodes(attachPoint) += this->numInnerNodes(rN) + 1;
-
             this->numAltRPoss(attachPoint) += this->numInnerNodes(rN);
 
             computeValues = true;
         }
 
+        // In case one of the child nodes was an inner node
         if(computeValues == true)
         {
-            // compute P_LA
+            // Compute the probability that the alternative allele was lost below the current node by adding the left
+            // and right likelihoods.
             this->lossAltScore(attachPoint) = addLogProb(leftContAltLos, rightContAltLos);
 
-            // compute P_LAR
+            // Compute the probability that the alternative allele was lost below the current node but not in the
+            // child nodes by adding the likelihood that the mutation was lost below the left or right child nodes
             this->lossAltRScore(attachPoint) = addLogProb(this->lossAltScore(lN) + this->hetScore(rN),
                                                           this->hetScore(lN) + this->lossAltScore(rN));
-            // compute P_LW
+
+            // Compute the probability that the reference allele was lost below the current node by adding the left
+            // and right likelihoods.
             this->lossWildScore(attachPoint) = addLogProb(leftContWildLos, rightContWildLos);
         }
     }
@@ -602,23 +611,34 @@ struct AttachmentScores {
         unsigned lN = target(*it, tree);                // left node id
         unsigned rN = target(*(it + 1), tree);          // right node id
 
+        // Compute the likelihood that any node in the current subtree is mutated (excluding leafs)
         this->hetSumScore(attachPoint) = addLogProb(hetScore(attachPoint),
                 addLogProb(hetSumScore(lN), hetSumScore(rN)));
 
-        // if the child nodes are leafs assign -INFINITY as parallel mutation in leafs are prohibited
+        // If the child nodes are leafs assign -INFINITY as parallel mutation in leafs are prohibited
         double lChildHetScore = tree[lN].sample == -1 ? this->hetScore(lN) : -INFINITY;
         double rChildHetScore = tree[rN].sample == -1 ? this->hetScore(rN) : -INFINITY;
 
+        // Compute the likelihood that one or both children are mutated
         this->childHetSumScore(attachPoint) = addLogProb(lChildHetScore, rChildHetScore);
+
+        // Compute the likelihood that there is one mutation in the left and one mutation in the right subtree
         this->lcaScore(attachPoint) = hetSumScore(lN) + hetSumScore(rN);
 
+        // The final lowest common ancestor score is computed by substracting all prohibited cases from the
+        // unrestricted score (lcaScore)
+        // Both child nodes cannot be mutated (it would be more likely that the current node was mutated)
         double hetContLcaR = lChildHetScore + rChildHetScore;
+        // The right child node cannot be mutated together with the children of the left child
         double leftContLcaR = this->childHetSumScore(lN) + rChildHetScore;
+        // The left child node cannot be mutated together with the children of the right child
         double rightContLcaR = lChildHetScore + this->childHetSumScore(rN);
+        // Substract the prohibited cases
         this->lcaRScore(attachPoint) = subLogProb(
                 subLogProb(this->lcaScore(attachPoint), hetContLcaR),
                 addLogProb(leftContLcaR, rightContLcaR));
 
+        // Count the number of placing possibilities
         if(tree[lN].sample == -1 && tree[rN].sample == -1) {
             this->numInnerNodes(attachPoint) = this->numInnerNodes(lN) + this->numInnerNodes(rN) + 2;
             this->numInnerChildNodes(attachPoint) = 2;
@@ -629,6 +649,7 @@ struct AttachmentScores {
             return;
         }
 
+        // Count the number of placing possibilities
         if(tree[lN].sample == -1)
         {
             this->numInnerNodes(attachPoint) = 1 + this->numInnerNodes(lN);
@@ -636,6 +657,7 @@ struct AttachmentScores {
             return;
         }
 
+        // Count the number of placing possibilities
         if(tree[rN].sample == -1)
         {
             this->numInnerNodes(attachPoint) = 1 + this->numInnerNodes(rN);
@@ -643,8 +665,6 @@ struct AttachmentScores {
             return;
         }
     }
-
-
 };
 
 #endif

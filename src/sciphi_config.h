@@ -42,44 +42,53 @@
 #include "noise_counts.h"
 #include "logScores.h"
 
-struct MutationTree {};
-struct SampleTree {};
-struct SimpleTree {};
+// SCIPhI is based on the SampleTree, which is a binary cell lineage tree that stores the cells as leafs and where the
+// mutations are attached to the nodes.
+struct SampleTree {
+};
 
-template <typename TTreeType>
-struct Vertex{};
+// The mutation Tree stors the mutations as leafs. This tree representation will be used for samples that consist of
+// many cells but only few mutations. At the moment this functionality is not supported.
+struct MutationTree {
+};
 
-template <>
+// A simplified tree where the nodes are condensed, used for printing purposes.
+struct SimpleTree {
+};
+
+template<typename TTreeType>
+struct Vertex {
+};
+
+template<>
 struct Vertex<MutationTree> {
     unsigned mutation;
 };
 
-template <>
+template<>
 struct Vertex<SampleTree> {
     int sample = -1;  // -1 indicates this is an inner node
 };
-template <>
+template<>
 struct Vertex<SimpleTree> {
     std::vector<unsigned> mutations;
     int sample = -1;
 };
 
 // This class is used to get statistics on the parameter learned
-struct ParamsCounter
-{
-    std::vector<double> mu;
-    std::vector<double> nu;
-    std::vector<double> lambda; // experimental
-    std::vector<double> parallel; // experimental
-    std::vector<double> wildAlpha;
-    std::vector<double> wildBeta;
-    std::vector<double> mutAlpha;
-    std::vector<double> mutBeta;
+struct ParamsCounter {
+    std::vector<double> mu;         // drop out rate
+    std::vector<double> nu;         // zygousity rate
+    std::vector<double> lambda;     // fraction of mutation losses
+    std::vector<double> parallel;   // fraction of parallel mutations
+    std::vector<double> wildAlpha;  // beta-binomila alpha parameter of the wild type (sequencing errors)
+    std::vector<double> wildBeta;   // beta-binomila beta parameter of the wild type (sequencing errors)
+    std::vector<double> mutAlpha;   // beta-binomila alpha parameter of the mutation model
+    std::vector<double> mutBeta;    // beta-binomila alpha parameter of the mutation model
 
-    ParamsCounter(){};
+    ParamsCounter() {};
 
-    unsigned resize(unsigned newSize)
-    {
+    unsigned resize(unsigned newSize) {
         mu.resize(newSize, 0);
         nu.resize(newSize, 0);
         lambda.resize(newSize, 0);
@@ -93,31 +102,30 @@ struct ParamsCounter
 };
 
 // This class combines all data structures such that they dont have to be passed between functions
-// TODO: create several sub-classes and use OOP!!!!!!!
-template <typename TTreeType>
-class Config{
+// TODO: create several sub-classes and use OOP!
+template<typename TTreeType>
+class Config {
 
-	public:
+public:
 
     // Some type definitions
-    typedef boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS,   
-                                  Vertex<TTreeType>>                    TGraph;                 
-	typedef std::vector<bool>                                           TSampleNodes;           
-	typedef LogScores                                                   TLogScores;
-    
-	typedef AttachmentScores                                            TAttachmentScores;
-    typedef PassDownAttachmentScores                                    TPassDownAttachmentScores;
-	typedef std::vector<std::vector<std::tuple<unsigned, unsigned> > >  TData;
-    typedef std::tuple<double, double>                                  TParamsTuple;
-    typedef std::array<TParamsTuple, 7>                                 TParams;
-    typedef std::tuple<double, unsigned, unsigned >                     TLearningParamsTuple;
-    typedef std::vector<TLearningParamsTuple>                           TLearningParams;
-    typedef boost::dynamic_bitset<>                                     TBitSet;
+    typedef boost::adjacency_list<boost::vecS,
+            boost::vecS,
+            boost::bidirectionalS,
+            Vertex<TTreeType>> TGraph;
+    //typedef std::vector<bool>                                           TSampleNodes;
+    typedef LogScores TLogScores;
+    typedef AttachmentScores TAttachmentScores;
+    typedef PassDownAttachmentScores TPassDownAttachmentScores;
+    typedef std::vector<std::vector<std::tuple<unsigned, unsigned> > > TData;
+    typedef std::tuple<double, double> TParamsTuple;
+    typedef std::array<TParamsTuple, 7> TParams;
+    typedef std::tuple<double, unsigned, unsigned> TLearningParamsTuple;
+    typedef std::vector<TLearningParamsTuple> TLearningParams;
+    typedef boost::dynamic_bitset<> TBitSet;
 
     // A practical enum for easy access to the parameters
-    enum ParamType{
+    enum ParamType {
         E_wildOverDis = 0,
         E_mutationOverDis = 1,
         E_wildMean = 2,
@@ -125,463 +133,579 @@ class Config{
         E_nu = 4,
         E_lambda = 5,
         E_parallel = 6,
-        E_mutationMean = 7};
+        E_mutationMean = 7
+    };
 
-    // Manu small helper functions, mostly getter and setter
+    // Many small helper functions, mostly getter and setter
     void updateParamsCounter();
-    
-    TGraph & getTree();
-    TGraph const & getTree() const;
-    void setTree(TGraph const & newTree);
 
-    TGraph & getTmpTree();
-    void setTmpTree(TGraph const & newTree);
+    TGraph &getTree();
 
-	unsigned getNumSamples() const;
-	void setNumSamples(unsigned newNumSamples);
-	
-	ParamType getParamToOptimize() const;
-	void setParamToOptimize(ParamType newParamToOptimize);
-	
+    TGraph const &getTree() const;
+
+    void setTree(TGraph const &newTree);
+
+    TGraph &getTmpTree();
+
+    void setTmpTree(TGraph const &newTree);
+
+    unsigned getNumSamples() const;
+
+    void setNumSamples(unsigned newNumSamples);
+
+    ParamType getParamToOptimize() const;
+
+    void setParamToOptimize(ParamType newParamToOptimize);
+
     unsigned getNumMutations() const;
+
     unsigned getNumAttachments() const;
 
-	TSampleNodes & getSampleNodes();
-	TSampleNodes const & getSampleNodes() const;
+    TLogScores &getLogScores();
 
-	TLogScores & getLogScores();
-	TLogScores const & getLogScores() const;
-	void setLogScores(TLogScores newLogScores);
-    
-    TLogScores & getTmpLogScores();
-	void setTmpLogScores(TLogScores & newTmpLogScores);
+    TLogScores const &getLogScores() const;
 
-	TData & getData();
-	TData const & getData() const;
+    void setLogScores(TLogScores newLogScores);
 
-	TData & getCompleteData();
-	TData const & getCompleteData() const;
+    TLogScores &getTmpLogScores();
 
-	TAttachmentScores & getTmpAttachmentScore();
-	TAttachmentScores const & getTmpAttachmentScore() const;
-	
+    void setTmpLogScores(TLogScores &newTmpLogScores);
+
+    TData &getData();
+
+    TData const &getData() const;
+
+    TData &getCompleteData();
+
+    TData const &getCompleteData() const;
+
+    TAttachmentScores &getTmpAttachmentScore();
+
+    TAttachmentScores const &getTmpAttachmentScore() const;
+
     double getParam(ParamType param);
+
     double getParam(ParamType param) const;
-	void setParam(ParamType param, double newParam);
+
+    void setParam(ParamType param, double newParam);
 
     double getTmpParam(ParamType param);
-	void setTmpParam(ParamType param, double newParam);
-    
+
+    void setTmpParam(ParamType param, double newParam);
+
     double getSDParam(ParamType param);
-    double getSDParam(ParamType param) const; 
-	void setSDParam(ParamType param, double newParam);
+
+    double getSDParam(ParamType param) const;
+
+    void setSDParam(ParamType param, double newParam);
 
     unsigned getSDCountParam(ParamType param);
+
     unsigned getSDCountParam(ParamType param) const;
-	void setSDCountParam(ParamType param, unsigned newParam);
-    
+
+    void setSDCountParam(ParamType param, unsigned newParam);
+
     unsigned getSDTrialsParam(ParamType param);
+
     unsigned getSDTrialsParam(ParamType param) const;
-	void setSDTrialsParam(ParamType param, unsigned newParam);
+
+    void setSDTrialsParam(ParamType param, unsigned newParam);
 
     unsigned getMoveTyp();
+
     void setMoveTyp(unsigned newMoveType);
 
-	int getOverDisInterval();
-
+    // This function is used to reset a newly drawn parameter if the proposed tree is rejected
     void resetParameters();
 
+    // Print the learned parameters of the model
     void printParameters();
 
+    // This function is used to increase the number of mutations used for the tree inference over time.
+    // Especially for trees with many more mutations than cells this approach speeds up the MCMC scheme.
     bool updateContainers(unsigned currentLoop);
 
+    // Initialize the counter of the mutation to node assignments
     void initMutInSampleCounter();
 
-	std::default_random_engine & getGenerator();
+    std::default_random_engine &getGenerator();
 
     // THe members of the config class
-    // the main tree structure - we make use of a pair to restore 
-    // a tree if the proposed one is discarded
-    std::pair<TGraph, TGraph>                   tree;
-    
-    // the parameters of the tree
-    TParams                                     params;                 // <overDisWild, overDisWildTmp>
-                                                                        // <overDisMutation, overDisMutationTmp>
-                                                                        // <wildMean, wildMeanTmp>
-    double                                      sub;                    // substitution error
-    
-    // the parameters for learning the tree parameters               
-    TLearningParams                             learningParams;         // <sdWildOverDis, numTrails, numSuc>
-                                                                        // <sdMutationOverDis, numTrails, numSuc>
-                                                                        // <sdWildMean, numTrails, numSuc>
+    // The main tree structure - we make use of a pair to restore a tree if the proposed one is discarded
+    std::pair<TGraph, TGraph> tree;
 
-    // the probabilities with which one of the moves 
-    // (including parameter estimation) is performed
-    std::array<double, 4>                       moveProbs;
-	std::default_random_engine                  generator; //(seed);
-    // the log scores for each mutation for each sample
-    unsigned                                    loops;
-    unsigned                                    reps;
-    unsigned                                    fixedSeed;
-    char                                        scoreType;
-    double                                      paramsEstimateRate;
-    double                                      priorMutationRate;
-    double                                      priorGermlineRate;
-    unsigned                                    uniqTreshold;
-    std::tuple<double, double>                  dataUsageRate; 
-    unsigned                                    sampleLoops;
-    unsigned                                    errorRateEstLoops;
-    
-    NoiseCounts                                 noiseCounts;
-    std::pair<TLogScores, TLogScores>			logScores;
-   
-	TSampleNodes	                            sampleNodes;
-	TData 				                        data;
-	TData 				                        completeData;
-    TAttachmentScores                           _tmpAttachmentScore;
-	unsigned 			                        numSamples;
-    unsigned                                    moveType;
+    // The parameters of the tree
+    TParams params;
 
-    ParamType                                   paramToOptimize;
-    std::string                                 outFilePrefix;
-    std::string                                 refFileName;
-    std::string                                 bamFileNames;
-    std::string                                 exclusionFileName;
-    std::string                                 mutationExclusionFileName;
-    std::string                                 variantInclusionFileName;
-    std::string                                 inFileName;
-    std::string                                 loadName;
-    std::string                                 lastName;
-    std::string                                 bestName;
-    std::string                                 samplingName;
-    std::string                                 mutToMaxName;
-    std::vector<std::string>                    cellNames;
-    std::vector<std::string>                    cellColours;
-    std::vector<unsigned>                       cellClusters;
+    // Substitution error, especially important for high coverage data sets to allow for early MDA errors
+    double sub;
+
+    // The parameters for learning the tree parameters
+    TLearningParams learningParams;
+
+    // The probabilities with which one of the move (including parameter estimation) is performed
+    std::array<double, 4> moveProbs;
+
+    // Random number generator
+    std::default_random_engine generator;
+
+    // Number of mcmc iteration
+    unsigned loops;
+
+    // Fixed, user specified seed
+    unsigned fixedSeed;
+
+    // Sum the probabilities of the mutation to node assignment or use the maximum
+    char scoreType;
+
+    // Rate with which the parameters and not the tree structure is learned
+    double paramsEstimateRate;
+
+    // The expected mutation rate
+    double priorMutationRate;
+
+    // The expected germline rate, important when it comes to single cell filtering based on single normal cells
+    double priorGermlineRate;
+
+    // Filter mutations showing up to this number of cells from the VCF.
+    unsigned uniqTreshold;
+
+    // Rate of data already used
+    std::tuple<double, double> dataUsageRate;
+
+    // Number of posterior sampling moves
+    unsigned sampleLoops;
+    // Positions used to estimate the sequencing error rate
+    unsigned errorRateEstLoops;
+
+    // The noise counts
+    NoiseCounts noiseCounts;
+
+    // The log score of the wild type, heterozygous, and homzygous model
+    // We use a pair here to sote a copy in case the new tree is rejected
+    std::pair<TLogScores, TLogScores> logScores;
+
+    // The nucleotid counts currently in use
+    TData data;
+
+    // The complete nucleotide counts
+    TData completeData;
+    // TODO: delete this, it can be replaced by a static varaible
+    TAttachmentScores _tmpAttachmentScore;
+
+    // The number of samples
+    unsigned numSamples;
+
+    // The current move/parameter learning type
+    unsigned moveType;
+
+    // The current model parameter to learn
+    ParamType paramToOptimize;
+
+    // Prefix of all output files
+    std::string outFilePrefix;
+
+    // Infos, such as cell name and type (tumor, normal)
+    std::string cellInfo;
+
+    // List of positions to be excluded (e.g., dbSNP posisitions)
+    std::string exclusionFileName;
+
+    // List of positions to be excluded from the error learning, e.g., likely mutated positions in a panel data set
+    std::string mutationExclusionFileName;
+
+    // The mpileup name
+    std::string inFileName;
+
+    // The index name to load
+    std::string loadName;
+
+    // The index name to store
+    std::string saveName;
+
+    // Name of the best index
+    std::string bestName;
+
+    // Cell names
+    std::vector<std::string> cellNames;
+
+    // Colours of cells
+    std::vector<std::string> cellColours;
+
+    // Cluster id of cell
+    std::vector<unsigned> cellClusters;
+
+    // For each mutation the chromosome, the position on the chromosome, the reference, and the alternative allel
     std::vector<std::tuple<std::string, unsigned, char, char>> indexToPosition;
+
+    // During the posterior sampling the mutation probabilities are summed up and normalized later
     std::vector<std::vector<TAttachmentScores::TAttachmentScore>> mutInSampleCounter;
-    int                                         minDist;
-    unsigned                                    maxMutPerWindow;
-    unsigned                                    numUniqMuts;
-    unsigned                                    numCellWithMutationMin;
-    unsigned                                    normalCellFilter;
-    unsigned                                    minCoverage;
-    unsigned                                    minCoverageAcrossCells;
-    unsigned                                    minNumCellsPassFilter;
-    unsigned                                    minSupport;
-    double                                      minFreq;
-    unsigned                                    minCovInControlBulk;
-    unsigned                                    maxSupInControlBulk;
-    ParamsCounter                               paramsCounter;
-    double                                      noiseScore;
-    bool                                        learnZygocity;
-    bool                                        computeLossScore;
-    bool                                        computeParallelScore;
-   // std::array<unsigned, 2>                     numMutPlacements;
-    bool                                        estimateSeqErrorRate;
-    std::array<double, 2>                       clamPrior;
-    double                                      meanFilter;      
-    unsigned                                    minCovNormalCell;
-    unsigned                                    maxNumberNormalCellMutated;
-    unsigned                                    sampling;
-    bool                                        useNormalCellsInTree;
+
+    // Window size for maximum number of allowed mutations
+    int windowSize;
+
+    // Maximum number of mutations allowed per window
+    unsigned maxMutPerWindow;
+
+    // Minimal number of cell required to show the mutation
+    unsigned numCellWithMutationMin;
+
+    // Filtering scheme to apply when normal cells are present
+    unsigned normalCellFilter;
+
+    // Min coverage for a cell to be considered for candidate loci identification
+    unsigned minCoverage;
+
+    // Minimum number of cells that have to pass the filters
+    unsigned minNumCellsPassFilter;
+
+    // Minimum support required for a cell
+    unsigned minSupport;
+
+    // Minimum frequency required for a cell
+    double minFreq;
+
+    // Minimum coverage in bulk required for a position to be considered
+    unsigned minCovInControlBulk;
+
+    // Number of reads allowed to support the alternative in a control bulk sample
+    unsigned maxSupInControlBulk;
+
+    // Data structure to store the learned parameters of the model during the posterior sampling to obtain overview
+    // statistics, sucha as median, mean, and sd
+    ParamsCounter paramsCounter;
+
+    // The score associated to noise (sequencing errors)
+    double noiseScore;
+
+    // Learn the homzygousity rate of the experiment
+    bool learnZygocity;
+
+    // Indicator if the computation of losing a mutation should be included
+    bool computeLossScore;
+
+    // Indicator if the computation of parallel a mutations should be included
+    bool computeParallelScore;
+
+    // Indicator if the sequencing error rate should be learned
+    bool estimateSeqErrorRate;
+
+    // Mutations with a mean alternative frequency of this are  by means of learning two beta-binomials
+    double meanFilter;
+
+    // Minimum coverage required for normal cells
+    unsigned minCovNormalCell;
+
+    // Maximum number of normal cells allowed to support the alternative allele
+    unsigned maxNumberNormalCellMutated;
+
+    // Indicator to decide whether the normal cells should be included in the tree structur learning
+    bool useNormalCellsInTree;
+    //double mu;
 
 
-	Config() :
-        params{{TParamsTuple{100.0,100.0},      //overdispersion background
-                TParamsTuple{2, 2},             //overdispersion mutation
-                TParamsTuple{0.001, 0.001},     //sequencing error rate
-                TParamsTuple{0.9, 0.9},         //drop out rate
-                TParamsTuple{0, 0},             //zygousity rate
-                TParamsTuple{0, 0},             //loss rate
-                TParamsTuple{0, 0}}},           //parallele rate
-        sub(0),
-        learningParams{{TLearningParamsTuple{5.0, 0, 0}, 
-                        TLearningParamsTuple{0.1, 0, 0}, 
-                        TLearningParamsTuple{0.01, 0, 0},
-                        TLearningParamsTuple{0.01, 0, 0},
-                        TLearningParamsTuple{0.01, 0, 0},
-                        TLearningParamsTuple{0.01, 0, 0},
-                        TLearningParamsTuple{0.01, 0, 0}}},
-        moveProbs{{0.64, 0.16, 0 , 0.2}},
-        generator(42),
-        loops(1000000),
-        reps(1),
-        fixedSeed(42),
-        scoreType('s'),
-        paramsEstimateRate(0.2),
-        priorMutationRate(0.0001),
-        priorGermlineRate(0.001),
-        uniqTreshold(0),
-        dataUsageRate{0, 1},
-        sampleLoops(100000),
-        errorRateEstLoops(100000),
-        outFilePrefix("sciphi"),
-        minDist(-1),
-        maxMutPerWindow(1),
-        numUniqMuts(0),
-        numCellWithMutationMin(2),
-        normalCellFilter(1),
-        minCoverage(1),
-        minCoverageAcrossCells(0),
-        minNumCellsPassFilter(2),
-        minSupport(3),
-        minFreq(0),
-        minCovInControlBulk(6),
-        maxSupInControlBulk(2),
-        noiseScore(0),
-        learnZygocity(false),
-        computeLossScore(false),
-        computeParallelScore(false),
-        //numMutPlacements({{0,0}}),
-        estimateSeqErrorRate(true),
-        clamPrior({{200,10000}}),
-        meanFilter(0.25),
-        minCovNormalCell(5),
-        maxNumberNormalCellMutated(0),
-        sampling(0),
-        useNormalCellsInTree(false)
-    {};
+    Config() :
+            params{{TParamsTuple{100.0, 100.0},             //overdispersion background
+                           TParamsTuple{2, 2},              //overdispersion mutation
+                           TParamsTuple{0.001, 0.001},      //sequencing error rate
+                           TParamsTuple{0.9, 0.9},          //drop out rate
+                           TParamsTuple{0, 0},              //zygousity rate
+                           TParamsTuple{0, 0},              //loss rate
+                           TParamsTuple{0, 0}}},            //parallele rate
+            sub(0),
+            learningParams{{TLearningParamsTuple{5.0, 0, 0},
+                                   TLearningParamsTuple{0.1, 0, 0},
+                                   TLearningParamsTuple{0.01, 0, 0},
+                                   TLearningParamsTuple{0.01, 0, 0},
+                                   TLearningParamsTuple{0.01, 0, 0},
+                                   TLearningParamsTuple{0.01, 0, 0},
+                                   TLearningParamsTuple{0.01, 0, 0}}},
+            moveProbs{{0.64, 0.16, 0, 0.2}},
+            generator(42),
+            loops(1000000),
+            fixedSeed(42),
+            scoreType('s'),
+            paramsEstimateRate(0.2),
+            priorMutationRate(0.0001),
+            priorGermlineRate(0.001),
+            uniqTreshold(0),
+            dataUsageRate{0, 1},
+            sampleLoops(100000),
+            errorRateEstLoops(100000),
+            outFilePrefix("sciphi"),
+            windowSize(-1),
+            maxMutPerWindow(1),
+            numCellWithMutationMin(2),
+            normalCellFilter(2),
+            minCoverage(1),
+            minNumCellsPassFilter(2),
+            minSupport(3),
+            minFreq(0),
+            minCovInControlBulk(6),
+            maxSupInControlBulk(2),
+            noiseScore(0),
+            learnZygocity(false),
+            computeLossScore(false),
+            computeParallelScore(false),
+            estimateSeqErrorRate(true),
+            meanFilter(0.25),
+            minCovNormalCell(5),
+            maxNumberNormalCellMutated(0),
+            useNormalCellsInTree(false) {};
 };
 
-template <typename TTreeType>
-typename Config<TTreeType>::TGraph & 
-Config<TTreeType>::getTree(){return this->tree.first;}
+template<typename TTreeType>
+typename Config<TTreeType>::TGraph &
+Config<TTreeType>::getTree() { return this->tree.first; }
 
 template<typename TTreeType>
-typename Config<TTreeType>::TGraph const & 
-Config<TTreeType>::getTree() const {return this->tree.first;}
+typename Config<TTreeType>::TGraph const &
+Config<TTreeType>::getTree() const { return this->tree.first; }
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setTree(Config::TGraph const & newTree){this->tree.first = newTree;}
+void
+Config<TTreeType>::setTree(Config::TGraph const &newTree) { this->tree.first = newTree; }
 
+// During the posterior sampling the learned values of the different parameters are stored using this function
 template<typename TTreeType>
-void 
-Config<TTreeType>::updateParamsCounter()
-{
-    this->paramsCounter.wildAlpha.push_back(this->getParam(Config::E_wildOverDis) * this->getParam(Config::E_wildMean));
-    this->paramsCounter.wildBeta.push_back(this->getParam(Config::E_wildOverDis) - this->getParam(Config::E_wildMean) * this->getParam(Config::E_wildOverDis));
-    this->paramsCounter.mutAlpha.push_back(this->getParam(Config::E_mutationOverDis) * this->getParam(Config::E_mutationMean));
-    this->paramsCounter.mutBeta.push_back(this->getParam(Config::E_mutationOverDis) - (0.5 -this->getParam(Config::E_wildMean) ) * this->getParam(Config::E_mutationOverDis));
+void
+Config<TTreeType>::updateParamsCounter() {
+    this->paramsCounter.wildAlpha.push_back(this->getParam(Config::E_wildOverDis) *
+                                            this->getParam(Config::E_wildMean));
+    this->paramsCounter.wildBeta.push_back(this->getParam(Config::E_wildOverDis) -
+                                           this->getParam(Config::E_wildMean) *
+                                           this->getParam(Config::E_wildOverDis));
+    this->paramsCounter.mutAlpha.push_back(this->getParam(Config::E_mutationOverDis) *
+                                           this->getParam(Config::E_mutationMean));
+    this->paramsCounter.mutBeta.push_back(this->getParam(Config::E_mutationOverDis) -
+                                          (0.5 - this->getParam(Config::E_wildMean)) *
+                                          this->getParam(Config::E_mutationOverDis));
     this->paramsCounter.mu.push_back(this->getParam(Config::E_mu));
     this->paramsCounter.nu.push_back(this->getParam(Config::E_nu));
     this->paramsCounter.lambda.push_back(this->getParam(Config::E_lambda));
     this->paramsCounter.parallel.push_back(this->getParam(Config::E_parallel));
 }
 
+// Get the backup tree (in case the new tree is discarded the backup can be used without need for re-computation)
 template<typename TTreeType>
-typename Config<TTreeType>::TGraph & 
-Config<TTreeType>::getTmpTree(){return this->tree.second;}
+typename Config<TTreeType>::TGraph &
+Config<TTreeType>::getTmpTree() { return this->tree.second; }
+
+// Set the backup tree (in case the new tree is discarded the backup can be used without need for re-computation)
+template<typename TTreeType>
+void
+Config<TTreeType>::setTmpTree(Config::TGraph const &newTree) { this->tree.second = newTree; }
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setTmpTree(Config::TGraph const & newTree){this->tree.second = newTree;}
+unsigned
+Config<TTreeType>::getNumSamples() const { return this->numSamples; }
 
 template<typename TTreeType>
-unsigned 
-Config<TTreeType>::getNumSamples() const {return this->numSamples;}
+void
+Config<TTreeType>::setNumSamples(unsigned newNumSamples) { this->numSamples = newNumSamples; }
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setNumSamples(unsigned newNumSamples){this->numSamples = newNumSamples;}
+typename Config<TTreeType>::ParamType
+Config<TTreeType>::getParamToOptimize() const { return this->paramToOptimize; }
 
 template<typename TTreeType>
-typename Config<TTreeType>::ParamType 
-Config<TTreeType>::getParamToOptimize() const {return this->paramToOptimize;}
+void
+Config<TTreeType>::setParamToOptimize(
+        Config<TTreeType>::ParamType newParamToOptimize) { this->paramToOptimize = newParamToOptimize; }
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setParamToOptimize(Config<TTreeType>::ParamType newParamToOptimize){this->paramToOptimize = newParamToOptimize;}
-
-template<typename TTreeType>
-unsigned 
-Config<TTreeType>::getNumMutations() const 
-{
-    assert(this->getData().size() > 0);    
+unsigned
+Config<TTreeType>::getNumMutations() const {
+    assert(this->getData().size() > 0);
     return this->getData()[0].size();
 }
 
 template<typename TTreeType>
-unsigned 
-Config<TTreeType>::getNumAttachments() const 
-{
-    assert(this->getData().size() > 0);    
+unsigned
+Config<TTreeType>::getNumAttachments() const {
+    assert(this->getData().size() > 0);
     return this->getData()[0].size();
 }
 
 template<typename TTreeType>
-typename Config<TTreeType>::TSampleNodes & 
-Config<TTreeType>::getSampleNodes(){return this->sampleNodes;}
+typename Config<TTreeType>::TLogScores &
+Config<TTreeType>::getLogScores() { return this->logScores.first; }
 
 template<typename TTreeType>
-typename Config<TTreeType>::TSampleNodes const & 
-Config<TTreeType>::getSampleNodes() const {return this->sampleNodes;}
+typename Config<TTreeType>::TLogScores const &
+Config<TTreeType>::getLogScores() const { return this->logScores.first; }
 
 template<typename TTreeType>
-typename Config<TTreeType>::TLogScores & 
-Config<TTreeType>::getLogScores(){return this->logScores.first;}
+void
+Config<TTreeType>::setLogScores(Config<TTreeType>::TLogScores newLogScores) { this->logScores.first = newLogScores; }
 
 template<typename TTreeType>
-typename Config<TTreeType>::TLogScores const & 
-Config<TTreeType>::getLogScores() const {return this->logScores.first;}
+typename Config<TTreeType>::TLogScores &
+Config<TTreeType>::getTmpLogScores() { return this->logScores.second; }
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setLogScores(Config<TTreeType>::TLogScores newLogScores){this->logScores.first = newLogScores;}
+void
+Config<TTreeType>::setTmpLogScores(
+        Config<TTreeType>::TLogScores &newTmpLogScores) { this->logScores.second = newTmpLogScores; }
 
 template<typename TTreeType>
-typename Config<TTreeType>::TLogScores & 
-Config<TTreeType>::getTmpLogScores(){return this->logScores.second;}
+typename Config<TTreeType>::TData &
+Config<TTreeType>::getData() { return this->data; }
+
+// get the currently used nucleotide count information
+template<typename TTreeType>
+typename Config<TTreeType>::TData const &
+Config<TTreeType>::getData() const { return this->data; }
+
+// get all nucleotide count information
+template<typename TTreeType>
+typename Config<TTreeType>::TData &
+Config<TTreeType>::getCompleteData() { return this->completeData; }
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setTmpLogScores(Config<TTreeType>::TLogScores & newTmpLogScores){this->logScores.second = newTmpLogScores;}
+typename Config<TTreeType>::TData const &
+Config<TTreeType>::getCompleteData() const { return this->completeData; }
+
+// TODO: remove this as it can be realised with a static variable
+template<typename TTreeType>
+typename Config<TTreeType>::TAttachmentScores &
+Config<TTreeType>::getTmpAttachmentScore() { return this->_tmpAttachmentScore; }
 
 template<typename TTreeType>
-typename Config<TTreeType>::TData & 
-Config<TTreeType>::getData(){return this->data;}
+typename Config<TTreeType>::TAttachmentScores const &
+Config<TTreeType>::getTmpAttachmentScore() const { return this->_tmpAttachmentScore; }
 
 template<typename TTreeType>
-typename Config<TTreeType>::TData const & 
-Config<TTreeType>::getData() const {return this->data;}
-
-template<typename TTreeType>
-typename Config<TTreeType>::TData & 
-Config<TTreeType>::getCompleteData(){return this->completeData;}
-
-template<typename TTreeType>
-typename Config<TTreeType>::TData const & 
-Config<TTreeType>::getCompleteData() const {return this->completeData;}
-
-template<typename TTreeType>
-typename Config<TTreeType>::TAttachmentScores & 
-Config<TTreeType>::getTmpAttachmentScore(){return this->_tmpAttachmentScore;}
-
-template<typename TTreeType>
-typename Config<TTreeType>::TAttachmentScores const & 
-Config<TTreeType>::getTmpAttachmentScore() const {return this->_tmpAttachmentScore;}
-
-template<typename TTreeType>
-double 
-Config<TTreeType>::getParam(Config<TTreeType>::ParamType param)
-{
+double
+Config<TTreeType>::getParam(Config<TTreeType>::ParamType param) {
+    // if the sequencing error rate is required compute it
     if (param == this->E_mutationMean)
-        return 0.5 - (2.0/3.0 * this->getParam(this->E_wildMean));
-    return std::get<0>(this->params[param]);
-}
-template<typename TTreeType>
-double 
-Config<TTreeType>::getParam(Config<TTreeType>::ParamType param) const
-{
-    if (param == this->E_mutationMean)
-        return 0.5 - (2.0/3.0 * this->getParam(this->E_wildMean));
+        return 0.5 - (2.0 / 3.0 * this->getParam(this->E_wildMean));
     return std::get<0>(this->params[param]);
 }
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setParam(Config<TTreeType>::ParamType param, double newParam){std::get<0>(this->params[param]) = newParam;}
+double
+Config<TTreeType>::getParam(Config<TTreeType>::ParamType param) const {
+    if (param == this->E_mutationMean)
+        return 0.5 - (2.0 / 3.0 * this->getParam(this->E_wildMean));
+    return std::get<0>(this->params[param]);
+}
 
 template<typename TTreeType>
-double 
-Config<TTreeType>::getTmpParam(Config<TTreeType>::ParamType param){return std::get<1>(this->params[param]);}
+void
+Config<TTreeType>::setParam(Config<TTreeType>::ParamType param, double newParam) {
+    std::get<0>(this->params[param]) = newParam;
+}
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setTmpParam(Config<TTreeType>::ParamType param, double newParam){std::get<1>(this->params[param]) = newParam;}
+double
+Config<TTreeType>::getTmpParam(Config<TTreeType>::ParamType param) { return std::get<1>(this->params[param]); }
 
 template<typename TTreeType>
-double 
-Config<TTreeType>::getSDParam(Config<TTreeType>::ParamType param){return std::get<0>(this->learningParams[param]);}
+void
+Config<TTreeType>::setTmpParam(Config<TTreeType>::ParamType param, double newParam) {
+    std::get<1>(this->params[param]) = newParam;
+}
 
 template<typename TTreeType>
-double 
-Config<TTreeType>::getSDParam(Config<TTreeType>::ParamType param) const {return std::get<0>(this->learningParams[param]);}
+double
+Config<TTreeType>::getSDParam(Config<TTreeType>::ParamType param) { return std::get<0>(this->learningParams[param]); }
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setSDParam(Config<TTreeType>::ParamType param, double newParam){std::get<0>(this->learningParams[param]) = newParam;}
+double
+Config<TTreeType>::getSDParam(Config<TTreeType>::ParamType param) const {
+    return std::get<0>(this->learningParams[param]);
+}
 
 template<typename TTreeType>
-unsigned 
-Config<TTreeType>::getSDCountParam(Config<TTreeType>::ParamType param){return std::get<1>(this->learningParams[param]);}
-template<typename TTreeType>
-unsigned 
-Config<TTreeType>::getSDCountParam(Config<TTreeType>::ParamType param) const {return std::get<1>(this->learningParams[param]);}
+void
+Config<TTreeType>::setSDParam(Config<TTreeType>::ParamType param, double newParam) {
+    std::get<0>(this->learningParams[param]) = newParam;
+}
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setSDCountParam(Config<TTreeType>::ParamType param, unsigned newParam){std::get<1>(this->learningParams[param]) = newParam;}
+unsigned
+Config<TTreeType>::getSDCountParam(Config<TTreeType>::ParamType param) {
+    return std::get<1>(this->learningParams[param]);
+}
 
 template<typename TTreeType>
-unsigned 
-Config<TTreeType>::getSDTrialsParam(Config<TTreeType>::ParamType param){return std::get<2>(this->learningParams[param]);}
+unsigned
+Config<TTreeType>::getSDCountParam(Config<TTreeType>::ParamType param) const {
+    return std::get<1>(this->learningParams[param]);
+}
 
 template<typename TTreeType>
-unsigned 
-Config<TTreeType>::getSDTrialsParam(Config<TTreeType>::ParamType param) const {return std::get<2>(this->learningParams[param]);}
+void
+Config<TTreeType>::setSDCountParam(Config<TTreeType>::ParamType param, unsigned newParam) {
+    std::get<1>(this->learningParams[param]) = newParam;
+}
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setSDTrialsParam(Config<TTreeType>::ParamType param, unsigned newParam){std::get<2>(this->learningParams[param]) = newParam;}
+unsigned
+Config<TTreeType>::getSDTrialsParam(Config<TTreeType>::ParamType param) {
+    return std::get<2>(this->learningParams[param]);
+}
 
 template<typename TTreeType>
-unsigned 
-Config<TTreeType>::getMoveTyp(){return this->moveType;}
+unsigned
+Config<TTreeType>::getSDTrialsParam(Config<TTreeType>::ParamType param) const {
+    return std::get<2>(this->learningParams[param]);
+}
 
 template<typename TTreeType>
-void 
-Config<TTreeType>::setMoveTyp(unsigned newMoveType){this->moveType = newMoveType;}
+void
+Config<TTreeType>::setSDTrialsParam(Config<TTreeType>::ParamType param, unsigned newParam) {
+    std::get<2>(this->learningParams[param]) = newParam;
+}
 
-template <typename TTreeType>
-std::default_random_engine & 
-Config<TTreeType>::getGenerator(){return this->generator;}
+template<typename TTreeType>
+unsigned
+Config<TTreeType>::getMoveTyp() { return this->moveType; }
+
+template<typename TTreeType>
+void
+Config<TTreeType>::setMoveTyp(unsigned newMoveType) { this->moveType = newMoveType; }
+
+template<typename TTreeType>
+std::default_random_engine &
+Config<TTreeType>::getGenerator() { return this->generator; }
 
 // This function is used to reset a newly drawn parameter if the proposed tree is rejected
-template <typename TTreeType>
-void 
-Config<TTreeType>::resetParameters()
-{
-    switch (this->getParamToOptimize()) 
-    {
-        case(E_wildOverDis) :
-        {
+template<typename TTreeType>
+void
+Config<TTreeType>::resetParameters() {
+    switch (this->getParamToOptimize()) {
+        case (E_wildOverDis) : {
             this->setParam(E_wildOverDis, this->getTmpParam(E_wildOverDis));
             break;
         }
-        case(E_mutationOverDis) :
-        {
+        case (E_mutationOverDis) : {
             this->setParam(E_mutationOverDis, this->getTmpParam(E_mutationOverDis));
             break;
         }
-        case(E_wildMean) :
-        {
+        case (E_wildMean) : {
             this->setParam(E_wildMean, this->getTmpParam(E_wildMean));
             break;
         }
-        case(E_mu) :
-        {
+        case (E_mu) : {
             this->setParam(E_mu, this->getTmpParam(E_mu));
             break;
         }
-        case(E_nu) :
-        {
+        case (E_nu) : {
             this->setParam(E_nu, this->getTmpParam(E_nu));
             break;
         }
-        case(E_lambda) :
-        {
+        case (E_lambda) : {
             this->setParam(E_lambda, this->getTmpParam(E_lambda));
             break;
         }
-        case(E_parallel) :
-        {
+        case (E_parallel) : {
             this->setParam(E_parallel, this->getTmpParam(E_parallel));
             break;
         }
-        case(E_mutationMean) :
-        {
+        case (E_mutationMean) : {
             assert(false);
             break;
         }
@@ -589,308 +713,150 @@ Config<TTreeType>::resetParameters()
     this->setLogScores(this->getTmpLogScores());
 };
 
-template <typename TTreeType>
-void 
-Config<TTreeType>::initMutInSampleCounter()
-{
+template<typename TTreeType>
+void
+Config<TTreeType>::initMutInSampleCounter() {
     this->mutInSampleCounter.resize(this->getNumSamples());
-    for (size_t i = 0; i < this->mutInSampleCounter.size(); ++i)
-    {
+    for (size_t i = 0; i < this->mutInSampleCounter.size(); ++i) {
         this->mutInSampleCounter[i].resize(this->getCompleteData()[0].size());
-        for (unsigned j = 0; j < this->mutInSampleCounter[i].size(); ++j)
-        {
+        for (unsigned j = 0; j < this->mutInSampleCounter[i].size(); ++j) {
             this->mutInSampleCounter[i][j] = AttachmentScore();
         }
     }
 }
 
 // This function is used to increase the number of mutations used for the tree inference over time
-template <typename TTreeType>
+template<typename TTreeType>
 bool
-Config<TTreeType>::updateContainers(unsigned currentLoop)
-{
-    if ((currentLoop < this->loops && // the current iteration is still smaller than the total number of iterations
-        static_cast<double>(currentLoop) / static_cast<double>(this->loops) >= std::get<0>(this->dataUsageRate))) // ||
-        //currentLoop == this->loops + this->sampleLoops - 1)
-    {   
+Config<TTreeType>::updateContainers(unsigned currentLoop) {
+
+    // check if more candidate mutations should be used for the tree inference
+    if (currentLoop < this->loops &&
+         static_cast<double>(currentLoop) / static_cast<double>(this->loops) >= std::get<0>(this->dataUsageRate)) {
+
         unsigned newDataSize = -1;
-        if (currentLoop == this->loops + this-> sampleLoops - 1)
-        {
+        // check if we are already in the posterior sampling phase
+        if (currentLoop >= this->loops) {
             newDataSize = this->getCompleteData()[0].size();
+        } else {
+            // increase the data usage rate by a pre defined fraction
+            std::get<0>(this->dataUsageRate) += std::get<1>(this->dataUsageRate);
+            newDataSize = std::round(std::get<0>(this->dataUsageRate) * (this->getCompleteData()[0].size()));
         }
-        else
-        {
-            std::get<0>(this->dataUsageRate) += std::get<1>(this->dataUsageRate); // increase the data usage rate by a pre defined fraction
-            newDataSize = std::round(std::get<0>(this->dataUsageRate) * (this->getCompleteData()[0].size() - this->numUniqMuts));
-        }
-        std::cout << "newDataSize: " << newDataSize << " " << std::get<0>(this->dataUsageRate) * (this->getCompleteData()[0].size() - this->numUniqMuts) << std::endl;
+
+        std::cout << "newDataSize: " <<
+                  newDataSize << " "
+                  << std::get<0>(this->dataUsageRate) * (this->getCompleteData()[0].size()) << std::endl;
+
+        // insert the new data points into the set of currently used ones
         size_t j = this->getNumMutations();
-        for (; j < newDataSize; ++j)
-        {
-            for (size_t i = 0; i < this->getNumSamples(); ++i)
-            {
+        for (; j < newDataSize; ++j) {
+            for (size_t i = 0; i < this->getNumSamples(); ++i) {
                 this->getData()[i].push_back(this->getCompleteData()[i][j]);
             }
         }
-
 
         // resize the log score vector
         this->getLogScores().resizeNumCells(this->getNumSamples());
         this->getTmpLogScores().resizeNumCells(this->getNumSamples());
         this->getLogScores().resizeNumMuts(this->getNumMutations());
-
         this->getTmpAttachmentScore().resize(2 * this->getNumSamples() - 1);
-	
+
+        // re-compute the log scores
         computeLogScoresOP(*this);
         this->setTmpLogScores(this->getLogScores());
-
 
         return true;
     }
     return false;
 };
 
-template <typename TTreeType>
+template<typename TTreeType>
 void
-Config<TTreeType>::printParameters(){
+Config<TTreeType>::printParameters() {
 
     std::cout << "num Samples:\t" << this->getNumSamples() << std::endl;
-    std::cout << "total # mut:\t" << this->getCompleteData()[0].size() << "\tcurrently used:\t" << this->getNumMutations() << std::endl;
-    std::cout << "normal     - freq:    " << this->getParam(Config::E_wildMean) << " SD: " << this->getSDParam(Config::E_wildMean) << " count: " << this->getSDCountParam(Config::E_wildMean)  << " trails: " << this->getSDTrialsParam(Config::E_wildMean) << std::endl;
-    std::cout << "normal     - overDis: " << this->getParam(Config::E_wildOverDis)  " SD: " << this->getSDParam(Config::E_wildOverDis) << " count: " << this->getSDCountParam(Config::E_wildOverDis) << " trails: " << this->getSDTrialsParam(Config::E_wildOverDis) << std::endl;
-    std::cout << "normla     - alpha:   " << this->getParam(Config::E_wildOverDis) * this->getParam(Config::E_wildMean) << " beta: " << this->getParam(Config::E_wildOverDis) - this->getParam(Config::E_wildMean) * this->getParam(Config::E_wildOverDis) << std::endl;
-    std::cout << "mutation   - overDis: " << this->getParam(Config::E_mutationOverDis) << " SD: " << this->getSDParam(Config::E_mutationOverDis) << " count: " << this->getSDCountParam(Config::E_mutationOverDis) << " trails: " << this->getSDTrialsParam(Config::E_mutationOverDis) << std::endl;
-    std::cout << "mutation   - alpha: " << this->getParam(Config::E_mutationOverDis) * this->getParam(Config::E_mutationMean) << " beta: " << this->getParam(Config::E_mutationOverDis) - (0.5 -this->getParam(Config::E_wildMean) ) * this->getParam(Config::E_mutationOverDis) << std::endl;
-    std::cout << "drop: " << this->getParam(Config::E_mu) << " SD: " << this->getSDParam(Config::E_mu) << " count: " << this->getSDCountParam(Config::E_mu) << " trails: " << this->getSDTrialsParam(Config::E_mu) << std::endl;
-    std::cout << "zyg: " << this->getParam(Config::E_nu) << " SD: " << this->getSDParam(Config::E_nu) << " count: " << this->getSDCountParam(Config::E_nu) << " trails: " << this->getSDTrialsParam(Config::E_nu) << std::endl;
-    std::cout << "loss: " << this->getParam(Config::E_lambda) << " SD: " << this->getSDParam(Config::E_lambda) << " count: " << this->getSDCountParam(Config::E_lambda) << " trails: " << this->getSDTrialsParam(Config::E_lambda) << std::endl;
-    std::cout << "para: " << this->getParam(Config::E_parallel) << " SD: " << this->getSDParam(Config::E_parallel) << " count: " << this->getSDCountParam(Config::E_parallel) << " trails: " << this->getSDTrialsParam(Config::E_parallel) << std::endl;
+    std::cout << "total # mut:\t" << this->getCompleteData()[0].size() << "\tcurrently used:\t"
+              << this->getNumMutations() << std::endl;
+    std::cout << "seq error  - freq:    " << this->getParam(Config::E_wildMean) << " SD: "
+              << this->getSDParam(Config::E_wildMean) << " count: "
+              << this->getSDCountParam(Config::E_wildMean) << " trails: " << this->getSDTrialsParam(Config::E_wildMean)
+              << std::endl;
+    std::cout << "normal     - overDis: " << this->getParam(Config::E_wildOverDis) << " SD: "
+              << this->getSDParam(Config::E_wildOverDis)
+              << " count: " << this->getSDCountParam(Config::E_wildOverDis) << " trails: "
+              << this->getSDTrialsParam(Config::E_wildOverDis) << std::endl;
+    std::cout << "normal     - alpha:   " << this->getParam(Config::E_wildOverDis) * this->getParam(Config::E_wildMean)
+              << " beta: " << this->getParam(Config::E_wildOverDis) -
+                              this->getParam(Config::E_wildMean) * this->getParam(Config::E_wildOverDis) << std::endl;
+    std::cout << "mutation   - overDis: " << this->getParam(Config::E_mutationOverDis) << " SD: "
+              << this->getSDParam(Config::E_mutationOverDis)
+              << " count: " << this->getSDCountParam(Config::E_mutationOverDis) << " trails: "
+              << this->getSDTrialsParam(Config::E_mutationOverDis) << std::endl;
+    std::cout << "mutation   - alpha: "
+              << this->getParam(Config::E_mutationOverDis) * this->getParam(Config::E_mutationMean) << " beta: "
+              << this->getParam(Config::E_mutationOverDis) -
+                 (0.5 - this->getParam(Config::E_wildMean)) * this->getParam(Config::E_mutationOverDis) << std::endl;
+    std::cout << "drop: " << 1 - this->getParam(Config::E_mu) << " SD: " << this->getSDParam(Config::E_mu) << " count: "
+              << this->getSDCountParam(Config::E_mu) << " trails: " << this->getSDTrialsParam(Config::E_mu)
+              << std::endl;
+    std::cout << "zyg: " << this->getParam(Config::E_nu) << " SD: " << this->getSDParam(Config::E_nu) << " count: "
+              << this->getSDCountParam(Config::E_nu) << " trails: " << this->getSDTrialsParam(Config::E_nu)
+              << std::endl;
+    std::cout << "loss: " << this->getParam(Config::E_lambda) << " SD: " << this->getSDParam(Config::E_lambda)
+              << " count: " << this->getSDCountParam(Config::E_lambda) << " trails: "
+              << this->getSDTrialsParam(Config::E_lambda) << std::endl;
+    std::cout << "para: " << this->getParam(Config::E_parallel) << " SD: " << this->getSDParam(Config::E_parallel)
+              << " count: " << this->getSDCountParam(Config::E_parallel) << " trails: "
+              << this->getSDTrialsParam(Config::E_parallel) << std::endl;
 };
 
-
-class ExtractNodesBFSVisitor : public boost::default_bfs_visitor
-{
-    boost::dynamic_bitset<> & bitSet;
-    unsigned & numElements;
-
-public:
-
-    ExtractNodesBFSVisitor(boost::dynamic_bitset<> & bitSet_, unsigned &numElements_) : 
-        bitSet(bitSet_),
-        numElements(numElements_)
-    {}
-
-    template < typename Vertex, typename Graph >
-    void discover_vertex(Vertex v, const Graph & g)
-    {
-        (void)g;
-        this->bitSet[v] = true;
-        ++this->numElements;
-    }
-};
-
-
-class SimplifyTreeDFSVisitor : public boost::default_dfs_visitor
-{
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, 
-                            boost::bidirectionalS, Vertex<SimpleTree>> TGraph;
-    typedef std::vector<std::vector<unsigned> > TMutationsOfNodes;
-    typedef std::stack<unsigned> TStack;
-
-    TGraph & newGraph;
-    TMutationsOfNodes const & mutationsOfNodes;
-    TStack & processedVertices;
-
-public:
-
-    SimplifyTreeDFSVisitor(TGraph & graph_, 
-            TMutationsOfNodes const & mutationsOfNodes_, 
-            TStack & processedVertices_) :
-        newGraph(graph_),
-        mutationsOfNodes(mutationsOfNodes_),
-        processedVertices(processedVertices_)
-    {}
-    
-    template < typename Vertex, typename Graph >
-    void discover_vertex(Vertex v, const Graph & g)
-    {
-        (void)g;
-
-        if (v == (num_vertices(g) - 1))
-        {
-            return;
-        }
-
-        // Add vertex if
-        //      vertex is root
-        //      vertex contains mutation
-        //      vertex is sample
-        if (source(*in_edges(v, g).first, g) == num_vertices(g) - 1 ||
-                this->mutationsOfNodes[v].size() > 0 || 
-                g[v].sample != -1)
-        {
-            unsigned newVertex = add_vertex(newGraph);
-            newGraph[newVertex].mutations = this->mutationsOfNodes[v];
-            if (g[v].sample != -1)
-            {
-                newGraph[newVertex].sample = g[v].sample;
-            }
-
-            // add edge if current vertex is not the root
-            if (source(*in_edges(v, g).first, g) != num_vertices(g) - 1)
-            {
-                add_edge(this->processedVertices.top(), newVertex, this->newGraph);
-            }
-            this->processedVertices.push(newVertex);
-
-        }
-    }
-
-    template <typename TVertex >
-    void finish_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) const
-    {
-        if (v == (num_vertices(g) - 1))
-        {
-            return;
-        }
-
-        // Remove added vertex if
-        //      vertex is root
-        //      vertex contains mutation
-        //      vertex is sample
-        if (source(*in_edges(v, g).first, g) == num_vertices(g) - 1 ||
-                this->mutationsOfNodes[v].size() > 0 || 
-                g[v].sample != -1)
-        {
-            this->processedVertices.pop();
-        }
-    }
-};
-
-
-
-class my_label_writer {
-    public:
-
-    my_label_writer(boost::adjacency_list<boost::vecS,boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>> const & simpleTree_,
-            std::vector<std::tuple<std::string, unsigned, char, char>> const & indexToPosition_,
-            std::vector<std::string> const & cellNames_,
-            std::vector<std::string> const & cellColours_, 
-            std::vector<unsigned> const & cellClusters_) : 
-        simpleTree(simpleTree_),
-        indexToPosition(indexToPosition_),
-        cellNames(cellNames_),
-        cellColours(cellColours_),
-        cellClusters(cellClusters_)
-    {}
-
-    template <class VertexOrEdge>
-    void operator()(std::ostream& out, const VertexOrEdge& v) const {
-
-        if (simpleTree[v].sample == -1)
-        {
-            out << "[style=filled, fillcolor=grey82, label=\"";
-        }
-        else
-        {
-            out << "[shape=" << (cellClusters[simpleTree[v].sample] == 1 ? "box" : "diamond") << ",style=filled, fillcolor=" << cellColours[simpleTree[v].sample] << ",label=\"" << cellNames[simpleTree[v].sample] << "\\n";
-        }
-        for (unsigned i = 0; i < simpleTree[v].mutations.size(); ++i)
-        {
-            out << std::get<0>(this->indexToPosition[simpleTree[v].mutations[i]]) << "_" << std::to_string(std::get<1>(this->indexToPosition[simpleTree[v].mutations[i]])) <<  "\\n";
-        }
-        out << "\"]";
-    }
-
-    private:
-    boost::adjacency_list<boost::vecS,boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>> const & simpleTree;
-    std::vector<std::tuple<std::string, unsigned, char, char>> const & indexToPosition;
-    std::vector<std::string> const & cellNames;
-    std::vector<std::string> const & cellColours;
-    std::vector<unsigned> const & cellClusters;
-};
-
-// this prints the graph as it is currently used
-class my_label_writer_complete {
-    public:
-
-    my_label_writer_complete(boost::adjacency_list<boost::vecS,boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const & sampleTree_) :
-        sampleTree(sampleTree_)
-    {}
-
-    template <class VertexOrEdge>
-    void operator()(std::ostream& out, const VertexOrEdge& v) const {
-
-        if (sampleTree[v].sample == -1)
-        {
-            out << "[label=\"" << v;
-        }
-        else
-        {
-            out << "[shape=box,label=\"" << sampleTree[v].sample + boost::num_vertices(sampleTree) / 2 - 1;
-        }
-        out << "\"]";
-    }
-
-    private:
-    boost::adjacency_list<boost::vecS,boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const & sampleTree;
-};
-
-//template <typename TTreeType>
-//double
-//computeWildLogScore(Config<TTreeType> & config, double altCount, double coverage);
-//template <typename TTreeType>
-//double
-//computeMutLogScore(Config<TTreeType> & config, double altCount, double coverage);
-
-std::array<double, 3> getStats(std::vector<double> & values)
-{
+// Get the median, mean, and sd of all sampled parameters
+std::array<double, 3> getStats(std::vector<double> &values) {
     std::array<double, 3> result;
-    std::sort(values.begin(), values.end());
-    result[0] = values[values.size()/2];
 
+    // Compute the median
+    std::sort(values.begin(), values.end());
+    result[0] = values[values.size() / 2];
+
+    // Compute the sum
     double sum = 0;
-    for (unsigned i = 0; i < values.size(); ++i)
-    {
+    for (unsigned i = 0; i < values.size(); ++i) {
         sum += values[i];
     }
     result[1] = sum / static_cast<double>(values.size());
 
+    // Compute the standard deviation
     double variance = 0;
-    for (unsigned i = 0; i < values.size(); ++i)
-    {
-        variance += std::pow(values[i]-result[1], 2);
+    for (unsigned i = 0; i < values.size(); ++i) {
+        variance += std::pow(values[i] - result[1], 2);
     }
-    result[2] = std::sqrt(variance/static_cast<double>(values.size()));
+    result[2] = std::sqrt(variance / static_cast<double>(values.size()));
 
     return result;
 }
 
 template<typename TTreeType>
 void
-writeParameters(Config<TTreeType> & config, std::string const & fileName)
-{
+writeParameters(Config<TTreeType> &config, std::string const &fileName) {
     std::ofstream outFile;
     outFile.open(fileName);
-	outFile << "background frequency:\t" << config.getParam(Config<TTreeType>::E_wildMean) << std::endl;
+    outFile << "background frequency:\t" << config.getParam(Config<TTreeType>::E_wildMean) << std::endl;
     std::array<double, 3> stats = getStats(config.paramsCounter.wildAlpha);
-	outFile << "wildAlpha:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    outFile << "wildAlpha:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.wildBeta);
-	outFile << "wildBeta:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
-	outFile << "average mutation frequency:\t" << config.getParam(Config<TTreeType>::E_mutationMean) << std::endl;
+    outFile << "wildBeta:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    outFile << "average mutation frequency:\t" << config.getParam(Config<TTreeType>::E_mutationMean) << std::endl;
     stats = getStats(config.paramsCounter.mutAlpha);
-	outFile << "altAlpha:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    outFile << "altAlpha:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.mutBeta);
-	outFile << "altBeta:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    outFile << "altBeta:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.mu);
-	outFile << "mu:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    outFile << "mu:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.nu);
-	outFile << "nu:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    outFile << "nu:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.lambda);
-	//outFile << "lambda:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    //outFile << "lambda:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.parallel);
     //outFile << "parallel:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
 }

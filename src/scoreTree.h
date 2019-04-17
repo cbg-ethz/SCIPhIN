@@ -106,11 +106,11 @@ public:
         attachmentScores.computeLogHetScoreInnerNode(v, attachmentScores.hetScore(target(*it, g)), attachmentScores.hetScore(target(*(it+1), g)));
         attachmentScores.computeLogHomScoreInnerNode(v, attachmentScores.homScore(target(*it, g)), attachmentScores.homScore(target(*(it+1), g)));
 
-        if (config.computeLossScore) // experimental
+        if (config.computeLossScore)
         {
             attachmentScores.computeLogLossScoreInnerNode(g, v);
         }
-        if (config.computeParallelScore) // experimental
+        if (config.computeParallelScore)
         {
             attachmentScores.computeLogLcaScoreInnerNode(g,v);
         }
@@ -193,17 +193,6 @@ unsigned getBestAttachmentPosition(Config<TTreeType> & config,
     return bestPos;
 }
 
-// This function puts a prior on lambda and is experimental
-template <typename TTreeType>
-double clamPriorLog(Config<TTreeType> & config)
-{
-    return 0;
-
-    //TODO need to look at this again!
-    boost::math::beta_distribution<> betaPDF(config.clamPrior[0],config.clamPrior[1]);
-    return std::log(boost::math::pdf(betaPDF, config.getParam(Config<TTreeType>::E_lambda)));
-}
-
 // This function compute the maximum likelihood score of a tree
 inline
 double maxScoreTree(Config<SampleTree> & config)
@@ -224,7 +213,7 @@ double maxScoreTree(Config<SampleTree> & config)
     
     if (config.computeLossScore) // experimental
     {
-	    return treeScore + noAttachmentScore + config.noiseScore + clamPriorLog(config);
+	    return treeScore + noAttachmentScore + config.noiseScore;
     }
 	return treeScore + noAttachmentScore + config.noiseScore;
 }
@@ -270,12 +259,7 @@ double sumScoreTree(Config<TTreeType> & config)
 
 	for(std::size_t attachment=0; attachment < config.getNumAttachments(); attachment++)
     {
-		sumTreeScore += getSumAttachmentScore(config, attachment);
-	}
-
-    if (config.computeLossScore)
-    {
-        return sumTreeScore + noAttachmentScore + config.noiseScore; // + clamPriorLog(config);
+        sumTreeScore += getSumAttachmentScore(config, attachment);
     }
 
 	return sumTreeScore + noAttachmentScore + config.noiseScore;

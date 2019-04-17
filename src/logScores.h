@@ -25,7 +25,7 @@
 
 struct LogScores
 {
-    typedef std::vector<std::vector<std::array<double, 4> > > TLogScores;
+    typedef std::vector<std::vector<std::array<double, 3> > > TLogScores;
 
     TLogScores logScores;
 
@@ -75,7 +75,7 @@ struct LogScores
     {
         for (unsigned i = 0; i < this->numCells(); ++i)
         {
-            this->logScores[i].resize(newSize, {{-INFINITY,-INFINITY,-INFINITY,-INFINITY}});
+            this->logScores[i].resize(newSize, {{-INFINITY,-INFINITY,-INFINITY}});
         }
         return;
     }
