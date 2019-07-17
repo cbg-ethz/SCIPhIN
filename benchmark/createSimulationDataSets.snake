@@ -167,7 +167,7 @@ rule sciphi:
         lsferrfile = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/sciphi/force_zyg_{fzyg}/sciphi_mutations.lsferr.log',
         scratch = '1000',
         mem = '1000',
-        time = '60',
+        time = '180',
         out = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/sciphi/force_zyg_{fzyg}/sciphi',
         loops = str(LOOPS),
         zyg = getZyg,
@@ -180,15 +180,15 @@ rule sciphi:
         OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/sciphi/force_zyg_{fzyg}/sciphi_mutations.log'
     shell:
         (SCIPHI + 
-        ' --cwm 2 ' + 
+        ' --ll 1 ' +
+        '--lp 1 ' +
+        '--ol {params.out}/sciphi/last ' +
+        '--cwm 2 ' + 
         '--lz {params.zyg} ' +
-        '-t s ' +
-        '-r 1 ' +
         '-l {params.loops} '
         '--pr {wildcards.prior} ' +
         '--seed {params.seed} ' +
         '-o {params.out} ' +
-        '-e 0.2 ' +
         '--in {input.fileNames} ' +
         '{input.mpileups}')
 
@@ -437,7 +437,7 @@ rule gatherBenchmarksPara:
         f1 = OUTDIR +  '{distance}_para_f1.pdf'
     shell:
         (PYTHON3 + ' ' + GATHERBENCH + ' {output.txt} {input}; ' +
-        RSCRIPT  + PLOTLOSS + ' {output.txt}')
+        RSCRIPT  + PLOTPARA + ' {output.txt}')
 
 localrules: gatherRandomTreeBenchmark
 rule gatherRandomTreeBenchmark:
