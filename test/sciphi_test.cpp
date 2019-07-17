@@ -2602,7 +2602,6 @@ BOOST_AUTO_TEST_CASE(read_data_pass_freq_filter) {
 BOOST_AUTO_TEST_CASE(read_data_apply_filter_across_cells) {
     Config<SampleTree> config;
     config.setNumSamples(3);
-    config.minCoverageAcrossCells = 5;
     config.minCoverage = 5;
     config.minFreq = 0.25;
     config.minSupport = 2;
@@ -2631,7 +2630,6 @@ BOOST_AUTO_TEST_CASE(read_data_apply_filter_across_cells) {
     BOOST_CHECK_MESSAGE(applyFilterAcrossCells(counts, config, 0) == false,
                         "applyFilterAcrossCells(counts, config, 0) = " << applyFilterAcrossCells(counts, config, 0));
 
-    config.minCoverageAcrossCells = 3;
     testLine = {"chr", "13", "REF", "5", "..A", "IIIII", "2", "AC", "II", "5", ".-3AACAAT.", "IIIII"};
     extractSeqInformation(counts, testLine, pos);
 

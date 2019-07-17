@@ -86,7 +86,7 @@ def getBams(wildcards):
 localrules: createBamFileSummary
 rule createBamFileSummary:
     output:
-        OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/bamFileNames.txt'
+        OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/cellInfo.txt'
     params: 
         bams = getBams
     shell:
@@ -208,7 +208,7 @@ rule monovar:
     input:
         ref = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/combined.fa',
         mpileup = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/combined.mpileup',
-        fileNames = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/bamFileNames.txt'
+        fileNames = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/cellInfo.txt'
     output:
         OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/monovar/monovar.vcf'
     params:
@@ -234,7 +234,7 @@ rule monovar:
 rule varscan:
     input:
         mpileup = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/combined.mpileup',
-        fileNames = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/bamFileNames.txt'
+        fileNames = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/cellInfo.txt'
     output:
         OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/varscan/varscan.vcf'
     params:
