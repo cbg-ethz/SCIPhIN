@@ -76,6 +76,8 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
     // configuration options
     boost::program_options::options_description parseConfig("Configuration");
     parseConfig.add_options()
+            ("im", boost::program_options::value<std::string>(&config.inFileName), 
+             "input mpileup")
             ("il", boost::program_options::value<decltype(config.loadName)>(&config.loadName),
              "Directory from which to read intermediate results.")
             ("ol", boost::program_options::value<decltype(config.saveName)>(&config.saveName),
@@ -156,24 +158,16 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
             ("ese", boost::program_options::value<decltype(config.estimateSeqErrorRate)>(&config.estimateSeqErrorRate),
              "Estimate the sequencing error rate. [1]");
 
-    // hidden options, i.e., input mpileup
-    boost::program_options::options_description hidden("Hidden options");
-    hidden.add_options()
-            ("input-mpileup", boost::program_options::value<std::string>()->required(), "input mpileup");
-
     boost::program_options::options_description cmdline_options;
-    cmdline_options.add(generic).add(parseConfig).add(hidden);
+    cmdline_options.add(generic).add(parseConfig);
     boost::program_options::options_description visible("Allowed options");
     visible.add(generic).add(parseConfig);
-    boost::program_options::positional_options_description p;
-    p.add("input-file", -1);
     boost::program_options::variables_map global_options;
 
     /* parse program options */
     try {
         boost::program_options::store(boost::program_options::command_line_parser(argc, argv).
                 options(cmdline_options).
-                positional(p).
                 run(), global_options);
 
         // show help options
@@ -184,16 +178,6 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
 
         boost::program_options::notify(global_options);
     }
-        // an input file is missing
-    catch (boost::program_options::required_option &e) {
-        if (e.get_option_name() == "--input-mpileup") {
-            std::cerr << "ERROR: You have provided no input mpileup file.\n";
-        } else {
-            std::cerr << "ERROR: " << e.what() << '\n';
-        }
-        exit(EXIT_FAILURE);
-    }
-        // some error happend while reading the parameters
     catch (boost::program_options::error &e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         exit(EXIT_FAILURE);
@@ -205,7 +189,6 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
         setMoveProbs(config, config.paramsEstimateRate);
     }
 
-    config.inFileName = global_options["input-file"].as<std::string>();
     config.bestName = config.outFilePrefix + "/best_index/";
     config.lastName = config.outFilePrefix + "/last_index/";
     config.samplingName = config.outFilePrefix + "/sample_index";
@@ -251,7 +234,19 @@ int main(int argc, char *argv[]) {
     } else {
         std::cout << "Reading the stored results file: " << std::flush;
         readCellNames(config);
-        readGraph(config);
+
+        //check if tree is provided
+        std::string treePath = config.loadName + "/tree.gv";
+        std::ifstream f(treePath.c_str());
+        if (f.good())
+        {
+            readGraph(config);
+        }
+        else
+        {
+            createInitialTree(config);
+        }
+
         readNucInfo(config);
         std::cout << "done!" << std::endl;
     }

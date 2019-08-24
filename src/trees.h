@@ -220,8 +220,7 @@ void createInitialTree(Config<SampleTree> & config)
     // add artificial node
     add_edge(2 * config.getNumSamples() - 1, 0, config.getTree());
 
-    // randomize tree
-    for (unsigned i = 0; i < 10 * 2 * config.getNumSamples(); ++i)
+    for (unsigned i = 0; i < 10 * config.getNumSamples(); ++i)
     {
         pruneAndReAttach(config);
     }
