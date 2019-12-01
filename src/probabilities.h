@@ -222,7 +222,7 @@ double
 computeHomoLogScoreOP(Config<TTreeType> &config, double altCount, double coverage) {
     return logBetaBinPDFOP(coverage - altCount,
                            coverage,
-                           config.getParam(Config<TTreeType>::E_wildMean),
+                           3.0 * config.getParam(Config<TTreeType>::E_wildMean),
                            config.getParam(Config<TTreeType>::E_wildOverDis));
 }
 
