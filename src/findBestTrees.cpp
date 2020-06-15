@@ -155,11 +155,20 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
              "Compute the loss score = allow a mutation to be lost in a subtree.")
             ("lp", boost::program_options::value<decltype(config.computeParallelScore)>(&config.computeParallelScore),
              "Compute the parallel score = allow a mutation to be acquired twice independently in the tree.")
+            ("llp", boost::program_options::value<decltype(config.lossScorePenalty)>(&config.lossScorePenalty),
+             "Penalty when computing the loss score.")
+            ("lpp", boost::program_options::value<decltype(config.parallelScorePenalty)>(&config.parallelScorePenalty),
+             "Penalty when computing the parallel score.")
             ("ese", boost::program_options::value<decltype(config.estimateSeqErrorRate)>(&config.estimateSeqErrorRate),
              "Estimate the sequencing error rate. [1]");
 
+    // hidden options, i.e., input files
+    boost::program_options::options_description hidden("Hidden options");
+    hidden.add_options()
+        ("smt", boost::program_options::value<decltype(config.mutToMaxName)>(&config.mutToMaxName), "Store to save mutations distribution of MAP tree.");
+
     boost::program_options::options_description cmdline_options;
-    cmdline_options.add(generic).add(parseConfig);
+    cmdline_options.add(generic).add(parseConfig).add(hidden);
     boost::program_options::options_description visible("Allowed options");
     visible.add(generic).add(parseConfig);
     boost::program_options::variables_map global_options;
@@ -265,7 +274,6 @@ int main(int argc, char *argv[]) {
         writeMutToMaxTree(config);
         return 0;
     }
-    
     // As with the paramsCounter (see above) every mutation to cell probability during the posterior sampling is stored.
     config.initMutInSampleCounter();
 

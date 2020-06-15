@@ -81,10 +81,10 @@ struct ParamsCounter {
     std::vector<double> nu;         // zygousity rate
     std::vector<double> lambda;     // fraction of mutation losses
     std::vector<double> parallel;   // fraction of parallel mutations
-    std::vector<double> wildAlpha;  // beta-binomila alpha parameter of the wild type (sequencing errors)
-    std::vector<double> wildBeta;   // beta-binomila beta parameter of the wild type (sequencing errors)
-    std::vector<double> mutAlpha;   // beta-binomila alpha parameter of the mutation model
-    std::vector<double> mutBeta;    // beta-binomila alpha parameter of the mutation model
+    std::vector<double> wildAlpha;  // beta-binomial alpha parameter of the wild type (sequencing errors)
+    std::vector<double> wildBeta;   // beta-binomial beta parameter of the wild type (sequencing errors)
+    std::vector<double> mutAlpha;   // beta-binomial alpha parameter of the mutation model
+    std::vector<double> mutBeta;    // beta-binomial alpha parameter of the mutation model
 
     ParamsCounter() {};
 
@@ -329,6 +329,9 @@ public:
     // Cell names
     std::vector<std::string> cellNames;
 
+    // File to save mutations distribution of MAP tree.
+    std::string mutToMaxName;
+
     // Colours of cells
     std::vector<std::string> cellColours;
 
@@ -386,6 +389,12 @@ public:
 
     // Indicator if the computation of parallel a mutations should be included
     bool computeParallelScore;
+
+    // Penalty when computing the loss score
+    double lossScorePenalty;
+    
+    // Penalty when computing the lparallel score
+    double parallelScorePenalty;
 
     // Indicator if the sequencing error rate should be learned
     bool estimateSeqErrorRate;
@@ -447,6 +456,8 @@ public:
             learnZygocity(false),
             computeLossScore(false),
             computeParallelScore(false),
+            lossScorePenalty(0),
+            parallelScorePenalty(0),
             estimateSeqErrorRate(true),
             meanFilter(0.25),
             minCovNormalCell(5),
@@ -580,7 +591,7 @@ double
 Config<TTreeType>::getParam(Config<TTreeType>::ParamType param) {
     // if the sequencing error rate is required compute it
     if (param == this->E_mutationMean)
-        return 0.5 - (2.0 / 3.0 * this->getParam(this->E_wildMean));
+        return 0.5 - this->getParam(this->E_wildMean);
     return std::get<0>(this->params[param]);
 }
 
@@ -588,7 +599,7 @@ template<typename TTreeType>
 double
 Config<TTreeType>::getParam(Config<TTreeType>::ParamType param) const {
     if (param == this->E_mutationMean)
-        return 0.5 - (2.0 / 3.0 * this->getParam(this->E_wildMean));
+        return 0.5 - this->getParam(this->E_wildMean);
     return std::get<0>(this->params[param]);
 }
 
@@ -856,9 +867,9 @@ writeParameters(Config<TTreeType> &config, std::string const &fileName) {
     stats = getStats(config.paramsCounter.nu);
     outFile << "nu:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.lambda);
-    //outFile << "lambda:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    outFile << "lambda:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.parallel);
-    //outFile << "parallel:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    outFile << "parallel:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
 }
 
 #endif

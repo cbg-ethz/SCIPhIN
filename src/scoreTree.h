@@ -278,7 +278,10 @@ double scoreTree(Config<TTreeType> & config)
     {
 		result = sumScoreTree(config);
     }
-    
+   
+    result -= config.lossScorePenalty * config.getNumMutations() * config.getParam(Config<TTreeType>::E_lambda);
+    result -= config.parallelScorePenalty * config.getNumMutations() * config.getParam(Config<TTreeType>::E_parallel);
+
 	return result;
 }
 #endif /* SCORETREE_H_ */
