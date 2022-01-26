@@ -4,22 +4,29 @@ cmake_minimum_required(VERSION 3.0.0)
 
 project(SCIPhI)
 
-option(BUILD_DIAGNOSTICS "Build diagnostic tools" ON)
+option(BUILD_DIAGNOSTICS "Build diagnostic tools" OFF)
 
 if (BUILD_DIAGNOSTICS)
 	set(CMAKE_CXX_STANDARD 14)
 
 	# Load the SeqAn module and fail if not found.
-	find_package (SeqAn REQUIRED)
+    find_package (SeqAn REQUIRED)
 else()
 	set(CMAKE_CXX_STANDARD 11)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ----------------------------------------------------------------------------
 # Dependencies
 # ----------------------------------------------------------------------------
+
+include(CheckLibraryExists)
+check_library_exists(rt clock_gettime "time.h" HAVE_CLOCK_GETTIME)
+if (HAVE_CLOCK_GETTIME)
+    set(SCIPHI_LIBRT "-lrt")
+endif()
 
 # Search for boost
 find_package(Boost 1.47 COMPONENTS program_options graph filesystem iostreams unit_test_framework REQUIRED)
@@ -30,7 +37,7 @@ find_package(Boost 1.47 COMPONENTS program_options graph filesystem iostreams un
 # Tell cmake we will need dlib.  This command will pull in dlib and compile it
 # into your project.  Note that you don't need to compile or install dlib.  All
 # cmake needs is the dlib source code folder and it will take care of everything.
-add_subdirectory(${DLIB_INCLUDEDIR} dlib_build)
+add_subdirectory(${DLIB_INCLUDEDIR} dlib)
 
 # ----------------------------------------------------------------------------
 # Build Setup
@@ -49,9 +56,12 @@ add_definitions (${SEQAN_DEFINITIONS})
 # Add CXX flags found by find_package (SeqAn).
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SEQAN_CXX_FLAGS}")
 
+#set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+#set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG}")
+
 # Add executable and link against SeqAn dependencies.
-add_executable(sciphi src/findBestTrees.cpp)
-target_link_libraries (sciphi dlib::dlib ${Boost_LIBRARIES})
+add_executable(sciphin src/findBestTrees.cpp)
+target_link_libraries (sciphin dlib::dlib ${Boost_LIBRARIES} ${SCIPHI_LIBRT})
 
 if (BUILD_DIAGNOSTICS)
 	add_executable(convertTree2Map src/convertTreeIntoClusterMap.cpp)

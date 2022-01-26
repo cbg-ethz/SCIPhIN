@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -22,7 +22,6 @@
  */
 #ifndef SCORETREE_H_
 #define SCORETREE_H_
-
 
 #include <stdbool.h>
 #include <vector>
@@ -37,16 +36,11 @@
 #include <queue>
 #include <tuple>
 #include "sciphi_config.h"
-#include "trees.h"
-#include "probabilities.h"
 #include "attachmentScores.h"
+#include "probabilities.h"
+#include "trees.h"
 
 #include <boost/math/distributions/beta.hpp>
-
-using namespace std;
-
-//extern double epsilon;
-//std::vector<std::string> getGeneNames(string fileName, unsigned numSamples);
 
 template <typename TTreeType>
 unsigned getBestAttachmentPosition(Config<TTreeType> & config,
@@ -88,64 +82,59 @@ public:
             return;
         }
 
-        // resue container
+        // reuse container
         Config<SampleTree>::TAttachmentScores & attachmentScores = this->attachmentScores;
+        attachmentScores[v] = AttachmentScore();
 
         // compute scores for leaf nodes
         if (g[v].sample != -1)
         {
-            attachmentScores.computeLogHetScoreLeaf(v, this->config.getLogScores().wtScore(g[v].sample, gene), this->config.getLogScores().hetScore(g[v].sample, gene));
-            attachmentScores.computeLogHomScoreLeaf(v, this->config.getLogScores().wtScore(g[v].sample, gene), this->config.getLogScores().homScore(g[v].sample, gene));
-            if (config.computeMixScore) // experimental
-            {
-                attachmentScores.computeLogMixWildScoreLeaf(v);
-                attachmentScores.computeLogMixHomScoreLeaf(v);
-            }
+            attachmentScores.computeLogHetScoreLeaf(v,
+                    this->config.getLogScores().wtScore(g[v].sample, gene),
+                    this->config.getLogScores().hetScore(g[v].sample, gene));
+            attachmentScores.computeLogHomScoreLeaf(v,
+                    this->config.getLogScores().wtScore(g[v].sample, gene),
+                    this->config.getLogScores().homScore(g[v].sample, gene));
+
+
             // add hetero score to overall tree score
             scoreSum.hetScore() = addLogProb(scoreSum.hetScore(), attachmentScores[v].hetScore());
-
             return ;
         }
 
-        // compute score of inner node and add it to the overall tree socre
+        // compute score of inner node and add it to the overall tree score
         auto it = out_edges(v,g).first;
         attachmentScores.computeLogHetScoreInnerNode(v, attachmentScores.hetScore(target(*it, g)), attachmentScores.hetScore(target(*(it+1), g)));
         attachmentScores.computeLogHomScoreInnerNode(v, attachmentScores.homScore(target(*it, g)), attachmentScores.homScore(target(*(it+1), g)));
-        scoreSum.hetScore() = addLogProb(scoreSum.hetScore(), attachmentScores[v].hetScore());
-        scoreSum.homScore() = addLogProb(scoreSum.homScore(), attachmentScores[v].homScore());
 
-        if (config.computeMixScore) // experimental
+        if (config.computeLossScore)
         {
-
-            unsigned leftNodeId = target(*it, g);
-            unsigned rightNodeId = target(*(it + 1), g);
-            bool innerNodeLeft = g[leftNodeId].sample == -1;
-            bool innerNodeRight = g[rightNodeId].sample == -1;
-            attachmentScores.computeLogMixWildScoreInnerNode(
-                    v,
-                    innerNodeLeft, 
-                    attachmentScores.mixWildScore(leftNodeId),
-                    attachmentScores.hetScore(leftNodeId),
-                    innerNodeRight, 
-                    attachmentScores.mixWildScore(rightNodeId),
-                    attachmentScores.hetScore(rightNodeId));
-            attachmentScores.computeLogMixHomScoreInnerNode(
-                    v,
-                    innerNodeLeft, 
-                    attachmentScores.homScore(leftNodeId), 
-                    attachmentScores.mixHomScore(leftNodeId),
-                    attachmentScores.hetScore(leftNodeId),
-                    innerNodeRight, 
-                    attachmentScores.homScore(rightNodeId), 
-                    attachmentScores.mixHomScore(rightNodeId),
-                    attachmentScores.hetScore(rightNodeId));
-
-            if(innerNodeLeft || innerNodeRight)
-            {
-                scoreSum.mixWildScore() = addLogProb(scoreSum.mixWildScore(), attachmentScores[v].mixWildScore());
-                scoreSum.mixHomScore() = addLogProb(scoreSum.mixHomScore(), attachmentScores[v].mixHomScore());
+            attachmentScores.computeLogLossScoreInnerNode(g, v);
+        }
+        if (config.computeParallelScore)
+        {
+            attachmentScores.computeLogLcaScoreInnerNode(g,v);
+        }
+        
+        AttachmentScore tmp = attachmentScores[v];
+        if (config.computeLossScore)
+        {
+            if (tmp.numAltRPoss() > 0){
+                tmp.lossAltRScore() -= std::log(tmp.numAltRPoss());
+            }
+            if (tmp.numInnerNodes() > 0){
+                tmp.lossWildScore() -= std::log(tmp.numInnerNodes());
             }
         }
+        if (config.computeParallelScore)
+        {
+            if (tmp.numLcaRPoss() > 0){
+                tmp.lcaRScore() -= std::log(tmp.numLcaRPoss());
+            }
+        }
+        
+        scoreSum.addInRealSpace(tmp);
+        
         return ;
     }
 };
@@ -156,11 +145,12 @@ void getAllAttachmentScores(typename Config<SampleTree>::TAttachmentScores & att
                             Config<SampleTree> & config,
 							unsigned int attachment)
 {
-    scoreSum.setMinusInfinity();
+    scoreSum = AttachmentScore();
     ComputeScoreDFSVisitor vis(config, attachmentScores, attachment, scoreSum);
     unsigned rootVertex = target(*out_edges(num_vertices(config.getTree()) - 1, config.getTree()).first, config.getTree());
 
     depth_first_search(config.getTree(), visitor(vis).root_vertex(rootVertex));
+
 }
 
 // this function computes the maximum likelihood score of a tree
@@ -169,28 +159,20 @@ double getBestAttachmentScore(Config<TTreeType> & config,
 							  unsigned int attachment)
 {
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
-    scoreSum.setMinusInfinity();
+    scoreSum = AttachmentScore();
 	
     typename Config<TTreeType>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
     getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
 
-	attachmentScores[0].computeFinalScore(
-            config.getParam(Config<TTreeType>::nu),
-            config.getParam(Config<TTreeType>::lambda),
-            config.getNumSamples() -1,
-            config.numMutPlacements[0],
-            config.getTree()[0].sample != -1,
-            config.computeMixScore);
+	attachmentScores[0].computeFinalScore(config,
+                                          scoreSum,
+                                          config.getTree()[0].sample != -1);
 	double bestScore = attachmentScores[0].finalScore();
     for (unsigned i = 1; i < attachmentScores.size(); ++i)
     {
-        attachmentScores[i].computeFinalScore(
-            config.getParam(Config<TTreeType>::nu),
-            config.getParam(Config<TTreeType>::lambda),
-            config.getNumSamples() -1,
-            config.numMutPlacements[0],
-            config.getTree()[i].sample != -1,
-            config.computeMixScore);
+        attachmentScores[i].computeFinalScore(config,
+                scoreSum,
+                config.getTree()[i].sample != -1);
         if (attachmentScores[i].finalScore() > bestScore)
         {
             bestScore = attachmentScores[i].finalScore();
@@ -206,28 +188,22 @@ unsigned getBestAttachmentPosition(Config<TTreeType> & config,
 							  unsigned int attachment){
 	
     typename Config<TTreeType>::TAttachmentScores::TAttachmentScore scoreSum;
-    scoreSum.setMinusInfinity();
+    scoreSum = AttachmentScore();
     typename Config<TTreeType>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
     getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
     
     unsigned bestPos = 0;
-	attachmentScores[0].computeFinalScore(
-            config.getParam(Config<TTreeType>::nu),
-            config.getParam(Config<TTreeType>::lambda),
-            config.getNumSamples() -1,
-            config.numMutPlacements[0],
-            config.getTree()[0].sample != -1,
-            config.computeMixScore);
+	attachmentScores[0].computeFinalScore(config,
+	        scoreSum,
+	        config.getTree()[0].sample != -1);
+
 	double bestScore = attachmentScores[0].finalScore();
     for (unsigned i = 1; i < attachmentScores.size(); ++i)
     {
-        attachmentScores[i].computeFinalScore(
-            config.getParam(Config<TTreeType>::nu),
-            config.getParam(Config<TTreeType>::lambda),
-            config.getNumSamples() -1,
-            config.numMutPlacements[0],
-            config.getTree()[i].sample != -1,
-            config.computeMixScore);
+        attachmentScores[i].computeFinalScore(config,
+                                              scoreSum,
+                                              config.getTree()[i].sample != -1);
+
         if (attachmentScores[i].finalScore() > bestScore)
         {
             bestScore = attachmentScores[i].finalScore();
@@ -236,14 +212,6 @@ unsigned getBestAttachmentPosition(Config<TTreeType> & config,
     }
 
     return bestPos;
-}
-
-// This function puts a prior on lambda and is experimental
-template <typename TTreeType>
-double clamPriorLog(Config<TTreeType> & config)
-{
-    boost::math::beta_distribution<> betaPDF(config.clamPrior[0],config.clamPrior[1]);
-    return std::log(boost::math::pdf(betaPDF, config.getParam(Config<TTreeType>::lambda)));
 }
 
 // This function compute the maximum likelihood score of a tree
@@ -264,9 +232,9 @@ double maxScoreTree(Config<SampleTree> & config)
   		treeScore += getBestAttachmentScore(config, mut);
     }
     
-    if (config.computeMixScore) // experimental
+    if (config.computeLossScore) // experimental
     {
-	    return treeScore + noAttachmentScore + config.noiseScore + clamPriorLog(config);
+	    return treeScore + noAttachmentScore + config.noiseScore;
     }
 	return treeScore + noAttachmentScore + config.noiseScore;
 }
@@ -280,13 +248,7 @@ double getSumAttachmentScore(Config<TTreeType> & config,
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
     getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
 
-    scoreSum.computeFinalScore(
-            config.getParam(Config<TTreeType>::nu), 
-            config.getParam(Config<TTreeType>::lambda), 
-            config.getNumSamples() - 1,
-            config.numMutPlacements[0], 
-            false,
-            config.computeMixScore);
+    scoreSum.computeFinalScore(config, scoreSum, false, true);
 
     return scoreSum.finalScore();
 }
@@ -318,12 +280,7 @@ double sumScoreTree(Config<TTreeType> & config)
 
 	for(std::size_t attachment=0; attachment < config.getNumAttachments(); attachment++)
     {
-		sumTreeScore += getSumAttachmentScore(config, attachment);
-	}
-
-    if (config.computeMixScore)
-    {
-	    return sumTreeScore + noAttachmentScore + config.noiseScore + clamPriorLog(config);
+        sumTreeScore += getSumAttachmentScore(config, attachment);
     }
 
 	return sumTreeScore + noAttachmentScore + config.noiseScore;
@@ -342,7 +299,17 @@ double scoreTree(Config<TTreeType> & config)
     {
 		result = sumScoreTree(config);
     }
-    
+
+    if (config.computeLossScore == true)
+    {
+        result -= (config.lossScorePenalty / 2.0) * config.getNumMutations() * config.getParam(Config<TTreeType>::E_lambdaWildLoss);
+        result -= (config.lossScorePenalty / 2.0) * config.getNumMutations() * config.getParam(Config<TTreeType>::E_lambdaMutLoss);
+    }
+    if (config.computeParallelScore == true)
+    {
+        result -= config.parallelScorePenalty * config.getNumMutations() * config.getParam(Config<TTreeType>::E_parallel);
+    }
+
 	return result;
 }
 #endif /* SCORETREE_H_ */

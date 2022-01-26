@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -25,7 +25,7 @@
 
 struct LogScores
 {
-    typedef std::vector<std::vector<std::array<double, 4> > > TLogScores;
+    typedef std::vector<std::vector<std::array<double, 3> > > TLogScores;
 
     TLogScores logScores;
 
@@ -75,7 +75,7 @@ struct LogScores
     {
         for (unsigned i = 0; i < this->numCells(); ++i)
         {
-            this->logScores[i].resize(newSize, {{-INFINITY,-INFINITY,-INFINITY,-INFINITY}});
+            this->logScores[i].resize(newSize, {{-INFINITY,-INFINITY,-INFINITY}});
         }
         return;
     }

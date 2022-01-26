@@ -4,12 +4,12 @@
 #
 # This file is part of SCIPhI.
 #
-# SCIPhI is free software: you can redistribute it and/or modify
+# SCIPhIN is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# SCIPhI is distributed in the hope that it will be useful,
+# SCIPhIN is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
@@ -23,7 +23,7 @@ from subprocess import call
 from snakemake.utils import R
 import random
 
-OUTDIR = "/cluster/work/bewi/members/singerj/projects/single_cell/submission/nm/simulation_2_2_er_0.001/"
+OUTDIR = ""
 NUMPOSITIONS = 1000000
 DROPOUTRATE = 0.2
 LOOPS = 1000000
@@ -43,26 +43,32 @@ COVVAR = 50
 AVERAGEREGIONLENGTH = 1000
 ALPHA = 2
 BETA = 2
-VIOLATIONS = ['0','0.05','0.10']
+LOSS = ['0','0.10','0.20', '0.30']
+PARA = ['0','0.02','0.05', '0.07']
 
 include: "tools.py"
 include: "createSimulationDataSets.snake"
 
 rule all:
     input:
-        OUTDIR + 'distance_numCells.txt',
-        OUTDIR + 'distance_drop.txt',
-        OUTDIR + 'distance_prior.txt',
-        OUTDIR + 'distance_zyg.txt',
-        OUTDIR + 'distance_cpn.txt',
-        OUTDIR + 'distance_tree.txt',
-        OUTDIR + 'distance_drop_wVS.txt',
-        OUTDIR + 'distance_vio.txt',
-        OUTDIR + 'noNAs_distance_numCells.txt',
-        OUTDIR + 'noNAs_distance_drop.txt',
-        OUTDIR + 'noNAs_distance_prior.txt',
-        OUTDIR + 'noNAs_distance_zyg.txt',
-        OUTDIR + 'noNAs_distance_cpn.txt',
-        OUTDIR + 'noNAs_distance_drop_wVS.txt',
-        OUTDIR + 'noNAs_distance_vio.txt',
+        #OUTDIR + 'distance_numCells.txt',
+        #OUTDIR + 'distance_drop.txt',
+        #OUTDIR + 'distance_prior.txt',
+        #OUTDIR + 'distance_zyg.txt',
+        #OUTDIR + 'distance_cpn.txt',
+        #OUTDIR + 'distance_tree.txt',
+        #OUTDIR + 'distance_drop_wVS.txt',
+        OUTDIR + 'distance_loss.txt',
+        OUTDIR + 'distance_para.txt',
+        OUTDIR + 'distance_lossPara.txt',
+        #OUTDIR + 'noNAs_distance_numCells.txt',
+        #OUTDIR + 'noNAs_distance_drop.txt',
+        #OUTDIR + 'noNAs_distance_prior.txt',
+        #OUTDIR + 'noNAs_distance_zyg.txt',
+        #OUTDIR + 'noNAs_distance_cpn.txt',
+        #OUTDIR + 'noNAs_distance_drop_wVS.txt',
+        OUTDIR + 'noNAs_distance_loss.txt',
+        OUTDIR + 'noNAs_distance_para.txt',
+        OUTDIR + 'noNAs_distance_lossPara.txt',
+
 

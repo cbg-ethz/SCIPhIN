@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -41,96 +41,106 @@
 
 #include <boost/math/special_functions/digamma.hpp>
 
-inline 
-double 
-logBetaBinCountsTerm(double sup, double cov)
-{
-    return std::lgamma(cov + 1.0) -  std::lgamma(sup + 1.0) - std::lgamma(cov - sup + 1.0);
+// The computation of the beta-binomial function can be divided into three parts
+// The three functions below each compute one of the three parts
+inline
+double
+logBetaBinCountsTerm(double sup, double cov) {
+    return std::lgamma(cov + 1.0)
+           - std::lgamma(sup + 1.0)
+           - std::lgamma(cov - sup + 1.0);
 }
 
-inline 
-double 
-logBetaBinMixedTerm(double sup, double cov, double mean, double overDis)
-{
-    return std::lgamma(sup + mean * overDis) + std::lgamma(cov - sup + overDis * (1.0 - mean)) - std::lgamma(cov + overDis);
+inline
+double
+logBetaBinMixedTerm(double sup, double cov, double mean, double overDis) {
+    return std::lgamma(sup + mean * overDis)
+           + std::lgamma(cov - sup + overDis * (1.0 - mean))
+           - std::lgamma(cov + overDis);
 }
 
-inline 
-double 
-logBetaBinParamsTerm(double mean, double overDis)
-{
-    return std::lgamma(overDis) - std::lgamma(mean * overDis) - std::lgamma(overDis * (1.0 - mean));
+inline
+double
+logBetaBinParamsTerm(double mean, double overDis) {
+    return std::lgamma(overDis)
+           - std::lgamma(mean * overDis)
+           - std::lgamma(overDis * (1.0 - mean));
 }
 
-inline 
-double 
-logBetaBinPDF(double sup, double cov, double mean, double overDis)
-{
+// Combine the three terms computed above
+inline
+double
+logBetaBinPDF(double sup, double cov, double mean, double overDis) {
     if (cov == 0)
         return 0;
 
     return logBetaBinCountsTerm(sup, cov) +
-        logBetaBinMixedTerm(sup, cov, mean, overDis) + 
-        logBetaBinParamsTerm(mean, overDis);
+           logBetaBinMixedTerm(sup, cov, mean, overDis) +
+           logBetaBinParamsTerm(mean, overDis);
 }
 
-inline 
-double 
-logBetaBinPDFOP(double sup, double cov, double mean, double overDis)
-{
+// Compute the tree terms above, however, the first term is actually not needed as it is basically a constant between
+// iterations
+inline
+double
+logBetaBinPDFOP(double sup, double cov, double mean, double overDis) {
     if (cov == 0)
         return 0;
 
     return //logBetaBinCountsTerm(sup, cov) + // we do not need the counts term as we are only interested in the score between iterations
-        logBetaBinMixedTerm(sup, cov, mean, overDis) + 
-        logBetaBinParamsTerm(mean, overDis);
-}
-
-inline 
-double 
-betaBinPDF(double sup, double cov, double mean, double overDis)
-{
-	return std::exp(logBetaBinPDF(sup, cov, mean, overDis));
+            logBetaBinMixedTerm(sup, cov, mean, overDis) +
+            logBetaBinParamsTerm(mean, overDis);
 }
 
 // Add two values in real space by first exponentiating
 inline
 double
-addLogProb(double x, double y)
-{
+addLogProb(double x, double y) {
+    if (x == -INFINITY) {
+        return y;
+    }
+
+    if (y == -INFINITY) {
+        return x;
+    }
+
     double maxScore;
     double minScore;
-    if (x > y)
-    {
+    if (x > y) {
         maxScore = x;
         minScore = y;
-    }
-    else
-    {
+    } else {
         maxScore = y;
         minScore = x;
     }
-    return std::log(1.0 + std::exp(minScore-maxScore)) + maxScore;
+    return std::log(1.0 + std::exp(minScore - maxScore)) + maxScore;
 }
 
 // Subtract two values in real space by first exponentiating
 inline
 double
-subLogProb(double x, double y)
-{
-    double maxScore;
-    double minScore;
-    if (x > y)
-    {
-        maxScore = x;
-        minScore = y;
+subLogProb(double x, double y) {
+
+    if (y == -INFINITY) // it is important to first check this case
+    {                   // because it avoids - -INFINITY in the next case
+        return x;
     }
-    else
-    {
-        maxScore = y;
-        minScore = x;
+    if (x == -INFINITY) 
+    {                  
+        return -INFINITY;
     }
-    return log(1.0 - exp(minScore-maxScore)) + maxScore;
+
+    // x and y are basically the same -> retunr log(0) == -INF
+    if (std::abs(x - y) <= 100 * std::numeric_limits<double>::epsilon()) {
+        return -INFINITY;
+    }
+
+    if (y>x)
+    {
+        return -INFINITY;
+    }
+
+    return log(1.0 - exp(y - x)) + x;
 }
 
 // Add two weighted values in real space by first exponentiating
@@ -138,452 +148,412 @@ inline
 double
 addLogProbWeight(double x, double y, double nu) // = (1.0 - nu) * x + nu * y
 {
-    if (nu == 0.0)
-    {
+    if (nu == 0.0) {
         return x;
     }
-    else if (nu == 1.0)
-    {
+
+    if (nu == 1.0) {
         return y;
     }
 
-    if (x > y)
-    {
-        return std::log((1.0 - nu) + nu * std::exp(y-x)) + x;
+    if (x == -INFINITY) {
+        return y;
     }
-    return std::log(nu + (1.0 - nu) * std::exp(x-y)) + y;
+
+    if (y == -INFINITY) {
+        return x;
+    }
+
+    if (x > y) {
+        return std::log((1.0 - nu) + nu * std::exp(y - x)) + x;
+    }
+    return std::log(nu + (1.0 - nu) * std::exp(x - y)) + y;
 }
 
-template <typename TTreeType>
+// Compute the actual plain wild type beta-binomial function
+template<typename TTreeType>
 double
-computeRawWildLogScore(Config<TTreeType> const & config, double altCount, double coverage)
-{
-    return logBetaBinPDF(altCount, 
-        coverage, 
-        config.getParam(Config<TTreeType>::wildMean), 
-        config.getParam(Config<TTreeType>::wildOverDis));
+computeRawWildLogScore(Config<TTreeType> const &config, double altCount, double coverage) {
+    return logBetaBinPDF(altCount,
+                         coverage,
+                         config.getParam(Config<TTreeType>::E_wildMean),
+                         config.getParam(Config<TTreeType>::E_wildOverDis));
 }
 
-template <typename TTreeType>
+// Compute the actual plain wild type beta-binomial function using the optimization above
+template<typename TTreeType>
 double
-computeRawWildLogScoreOP(Config<TTreeType> const & config, double altCount, double coverage)
-{
-    return logBetaBinPDFOP(altCount, 
-        coverage, 
-        config.getParam(Config<TTreeType>::wildMean), 
-        config.getParam(Config<TTreeType>::wildOverDis));
+computeRawWildLogScoreOP(Config<TTreeType> const &config, double altCount, double coverage) {
+    return logBetaBinPDFOP(altCount,
+                           coverage,
+                           config.getParam(Config<TTreeType>::E_wildMean),
+                           config.getParam(Config<TTreeType>::E_wildOverDis));
 }
 
-template <typename TTreeType>
+// Compute the actual plain mutation type beta-binomial function
+template<typename TTreeType>
 double
-computeRawMutLogScore(Config<TTreeType> const & config, double altCount, double coverage)
-{
-    return logBetaBinPDF(altCount, 
-                coverage, 
-                config.getParam(Config<TTreeType>::mutationMean), 
-                config.getParam(Config<TTreeType>::mutationOverDis));
+computeRawMutLogScore(Config<TTreeType> const &config, double altCount, double coverage) {
+    return logBetaBinPDF(altCount,
+                         coverage,
+                         config.getParam(Config<TTreeType>::E_mutationMean),
+                         config.getParam(Config<TTreeType>::E_mutationOverDis));
 }
 
-template <typename TTreeType>
+// Compute the actual plain mutation type beta-binomial function using the optimization above
+template<typename TTreeType>
 double
-computeRawMutLogScoreOP(Config<TTreeType> & config, double altCount, double coverage)
-{
-    return logBetaBinPDFOP(altCount, 
-                coverage, 
-                config.getParam(Config<TTreeType>::mutationMean), 
-                config.getParam(Config<TTreeType>::mutationOverDis));
+computeRawMutLogScoreOP(Config<TTreeType> &config, double altCount, double coverage) {
+    return logBetaBinPDFOP(altCount,
+                           coverage,
+                           config.getParam(Config<TTreeType>::E_mutationMean),
+                           config.getParam(Config<TTreeType>::E_mutationOverDis));
 }
 
-template <typename TTreeType>
+template<typename TTreeType>
 double
-computeWildLogScoreOP(Config<TTreeType> & config, double altCount, double coverage)
-{
+computeWildLogScoreOP(Config<TTreeType> &config, double altCount, double coverage) {
     double logWild = computeRawWildLogScoreOP(config, altCount, coverage);
     double logMut = computeRawMutLogScoreOP(config, altCount, coverage);
     return addLogProbWeight(logWild, logMut, config.sub);
 }
 
 
-template <typename TTreeType>
+template<typename TTreeType>
 double
-computeHomoLogScoreOP(Config<TTreeType> & config, double altCount, double coverage)
-{
-    return logBetaBinPDFOP(coverage-altCount, 
-        coverage, 
-        config.getParam(Config<TTreeType>::wildMean), 
-        config.getParam(Config<TTreeType>::wildOverDis));
+computeHomoLogScoreOP(Config<TTreeType> &config, double altCount, double coverage) {
+    return logBetaBinPDFOP(coverage - altCount,
+                           coverage,
+                           3.0 * config.getParam(Config<TTreeType>::E_wildMean),
+                           config.getParam(Config<TTreeType>::E_wildOverDis));
 }
 
-// This function combines the wild type beta-bin, the hetero beta-bin and the homo mutand beta-bin
-template <typename TTreeType>
+// This function combines the wild type beta-bin, the hetero beta-bin and the homo beta-bin
+template<typename TTreeType>
 double
-computeHeteroLogScoreOP(Config<TTreeType> & config, double altCount, double coverage)
-{
-    double mu = config.getParam(Config<TTreeType>::mu);
+computeHeteroLogScoreOP(Config<TTreeType> &config, double altCount, double coverage) {
+    double mu = config.getParam(Config<TTreeType>::E_mu);
     double oneMinusMu = 1.0 - mu;
-    double logHomo = addLogProbWeight(computeRawWildLogScoreOP(config, altCount, coverage), computeHomoLogScoreOP(config, altCount,  coverage), 0.5);
+    double logHomo = addLogProbWeight(computeRawWildLogScoreOP(config, altCount, coverage),
+                                      computeHomoLogScoreOP(config, altCount, coverage), 0.5);
     return addLogProbWeight(computeRawMutLogScoreOP(config, altCount, coverage), logHomo, oneMinusMu);
 }
 
-template <typename TTreeType>
-void computeWildLogScoresOP(Config<TTreeType> & config)
-{
-	for (unsigned int i = 0; i < config.getLogScores().size(); ++i)
-	{
-		for (unsigned int j = 0; j < config.getLogScores()[0].size(); ++j)
-		{
-            //std::get<0>(config.getLogScores()[i][j]) = computeRawWildLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
-            std::get<0>(config.getLogScores()[i][j]) = computeWildLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
-		}
-	}
+template<typename TTreeType>
+void computeWildLogScoresOP(Config<TTreeType> &config) {
+    for (unsigned int i = 0; i < config.getLogScores().size(); ++i) {
+        for (unsigned int j = 0; j < config.getLogScores()[0].size(); ++j) {
+            std::get<0>(config.getLogScores()[i][j]) = computeWildLogScoreOP(config,
+                                                                             std::get<1>(config.getData()[i][j]),
+                                                                             std::get<0>(config.getData()[i][j]));
+        }
+    }
 }
 
-template <typename TTreeType>
-void computeLogScoresOP(Config<TTreeType> & config)
-{
-	for (unsigned int i = 0; i < config.getLogScores().numCells(); ++i)
-	{
-		for (unsigned int j = 0; j < config.getLogScores().numMuts(); ++j)
-		{
-            //config.getLogScores().wtScore(i, j) = computeRawWildLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
-            config.getLogScores().wtScore(i, j) = computeWildLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
-            config.getLogScores().hetScore(i, j) = computeHeteroLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
-            config.getLogScores().homScore(i, j) = computeHomoLogScoreOP(config, std::get<1>(config.getData()[i][j]), std::get<0>(config.getData()[i][j]));
-		}
-	}
+template<typename TTreeType>
+void computeLogScoresOP(Config<TTreeType> &config) {
+    for (unsigned int i = 0; i < config.getLogScores().numCells(); ++i) {
+        for (unsigned int j = 0; j < config.getLogScores().numMuts(); ++j) {
+            config.getLogScores().wtScore(i, j) = computeWildLogScoreOP(config, std::get<1>(config.getData()[i][j]),
+                                                                        std::get<0>(config.getData()[i][j]));
+            config.getLogScores().hetScore(i, j) = computeHeteroLogScoreOP(config, std::get<1>(config.getData()[i][j]),
+                                                                           std::get<0>(config.getData()[i][j]));
+            config.getLogScores().homScore(i, j) = computeHomoLogScoreOP(config, std::get<1>(config.getData()[i][j]),
+                                                                         std::get<0>(config.getData()[i][j]));
+        }
+    }
 }
 
 inline
 void
-computeNoiseScore(Config<SampleTree> & config)
-{
+computeNoiseScore(Config<SampleTree> &config) {
 
-    long double mean = config.getParam(Config<SampleTree>::wildMean);
-    long double overDis = config.getParam(Config<SampleTree>::wildOverDis);
+    if (config.noiseCounts.numPos == 0)
+    {
+        config.noiseScore = 0;
+    }
+
+    long double mean = config.getParam(Config<SampleTree>::E_wildMean);
+    long double overDis = config.getParam(Config<SampleTree>::E_wildOverDis);
     long double alpha = mean * overDis;
     long double beta = overDis * (1.0 - mean);
 
     config.noiseScore = config.noiseCounts.numPos * logBetaBinParamsTerm(mean, overDis);
-    for (unsigned i = 0; i < config.noiseCounts.sup.size(); ++i)
-    {
+    for (unsigned i = 0; i < config.noiseCounts.sup.size(); ++i) {
         config.noiseScore += config.noiseCounts.sup[i].second * std::lgamma(config.noiseCounts.sup[i].first + alpha);
     }
-    for (unsigned i = 0; i < config.noiseCounts.covMinusSup.size(); ++i)
-    {
-        config.noiseScore += config.noiseCounts.covMinusSup[i].second * std::lgamma(config.noiseCounts.covMinusSup[i].first + beta); 
-    }   
-    for (unsigned i = 0; i < config.noiseCounts.cov.size(); ++i)
-    {
-        config.noiseScore -= config.noiseCounts.cov[i].second * std::lgamma(config.noiseCounts.cov[i].first + overDis); 
+    for (unsigned i = 0; i < config.noiseCounts.covMinusSup.size(); ++i) {
+        config.noiseScore +=
+                config.noiseCounts.covMinusSup[i].second * std::lgamma(config.noiseCounts.covMinusSup[i].first + beta);
+    }
+    for (unsigned i = 0; i < config.noiseCounts.cov.size(); ++i) {
+        config.noiseScore -= config.noiseCounts.cov[i].second * std::lgamma(config.noiseCounts.cov[i].first + overDis);
     }
 }
 
 // This class is used to pass the score from the root towards the leaves
-class PassScoreToChildrenBFSVisitor : public boost::default_bfs_visitor
-{
-    Config<SampleTree> & config;
-    Config<SampleTree>::TAttachmentScores & attachmentScores;
-    Config<SampleTree>::TAttachmentScores::TAttachmentScore & sumScore;
+class PassScoreToChildrenBFSVisitor : public boost::default_bfs_visitor {
+    Config<SampleTree> &config;
+    Config<SampleTree>::TAttachmentScores &attachmentScores;
+    Config<SampleTree>::TAttachmentScores &attachmentSumScores;
+    Config<SampleTree>::TPassDownAttachmentScores &passDownAttachmentScores;
+    Config<SampleTree>::TPassDownAttachmentScores &passDownAttachmentSumScores;
+    long double &sumParallel;
+    //Config<SampleTree>::TAttachmentScores::TAttachmentScore &sumScore;
 
 public:
 
-    PassScoreToChildrenBFSVisitor(Config<SampleTree> & config_, 
-            Config<SampleTree>::TAttachmentScores & attachmentScores_, 
-            Config<SampleTree>::TAttachmentScores::TAttachmentScore & sumScore_, 
-            unsigned attachment_) : 
-        config(config_),
-        attachmentScores(attachmentScores_),
-        sumScore(sumScore_)
-    {}
+    PassScoreToChildrenBFSVisitor(Config<SampleTree> &config_,
+                                  Config<SampleTree>::TAttachmentScores &attachmentScores_,
+                                  Config<SampleTree>::TAttachmentScores &attachmentSumScores_,
+                                  Config<SampleTree>::TPassDownAttachmentScores &passDownAttachmentScores_,
+                                  Config<SampleTree>::TPassDownAttachmentScores &passDownAttachmentSumScores_,
+                                  long double & sumParallel_,
+                                  //Config<SampleTree>::TAttachmentScores::TAttachmentScore &sumScore_,
+                                  unsigned attachment_) :
+            config(config_),
+            attachmentScores(attachmentScores_),
+            attachmentSumScores(attachmentSumScores_),
+            passDownAttachmentScores(passDownAttachmentScores_),
+            passDownAttachmentSumScores(passDownAttachmentSumScores_),
+            sumParallel(sumParallel_)
+            //sumScore(sumScore_) 
+            {}
 
-    template <typename TVertex >
-    void discover_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) const
-    {
-        (void)g;
-        if (v == num_vertices(config.getTree()) - 1)
-        {
+    template<typename TVertex>
+    void discover_vertex(TVertex v, typename Config<SampleTree>::TGraph const &g) const {
+        (void) g;
+        if (v == num_vertices(g) - 1) {
             return;
         }
 
-        unsigned parentNode = source(*in_edges(v, g).first, g);
-        if (parentNode == num_vertices(config.getTree()) - 1)
-        {
-            sumScore.addInRealSpace(attachmentScores[v]);
+        attachmentSumScores[v] = AttachmentScore();
+        passDownAttachmentScores[v] = PassDownAttachmentScore();
+        passDownAttachmentSumScores[v] = PassDownAttachmentScore();
+
+        unsigned pN = source(*in_edges(v, g).first, g); // parent Node
+
+        if (pN == num_vertices(config.getTree()) - 1) {
+            //sumScore.addInRealSpace(attachmentScores[v]);
+            attachmentSumScores[v] = attachmentScores[v];
+            passDownAttachmentSumScores[v].numParentNodes() = 0;
+            if (attachmentScores[v].numAltRPoss() > 0){
+                attachmentSumScores[v].lossAltRScore() -= std::log(attachmentScores[v].numAltRPoss());
+            }
+            if (attachmentScores[v].numInnerNodes() > 0){
+                attachmentSumScores[v].lossWildScore() -= std::log(attachmentScores[v].numInnerNodes());
+            }
             return;
         }
 
-        if (g[v].sample == -1)
-        {
-            sumScore.addInRealSpace(attachmentScores[v]);
-            attachmentScores[v].homScore() = addLogProb(attachmentScores[v].homScore(), attachmentScores[parentNode].homScore());
-            attachmentScores[v].hetScore() = addLogProb(attachmentScores[v].hetScore(), attachmentScores[parentNode].hetScore());
-            if(config.computeMixScore)
+        if (g[v].sample == -1) {
+            unsigned sN = getSibling(g, v);                  // sibling node id
+
+            passDownAttachmentSumScores[v].numParentNodes() += 1;
+            passDownAttachmentScores.computeLogLossInCurrentInnerNode(g, attachmentScores, v);
+
+            passDownAttachmentSumScores[v].numSibInnerNodes() = passDownAttachmentSumScores[pN].numSibInnerNodes() + attachmentScores[v].numInnerNodes() + 1;
+            passDownAttachmentSumScores[v].numParentNodes() += 1;
+
+            //sumScore.addInRealSpace(attachmentScores[v]);
+
+            attachmentSumScores[v].hetScore() =
+                    addLogProb(attachmentScores[v].hetScore(),
+                               attachmentSumScores[pN].hetScore());
+            attachmentSumScores[v].homScore() =
+                    addLogProb(attachmentScores[v].homScore(),
+                               attachmentSumScores[pN].homScore());
+            attachmentSumScores[v].lossAltRScore() =
+                    addLogProb(attachmentScores[v].lossAltRScore(),
+                               attachmentSumScores[pN].lossAltRScore());
+            if (attachmentScores[v].numAltRPoss() > 0)
             {
-                if (std::isnan(attachmentScores[v].mixWildScore()))
-                {
-                    attachmentScores[v].mixWildScore() = attachmentScores[parentNode].mixWildScore();
-                    attachmentScores[v].mixHomScore() = attachmentScores[parentNode].mixHomScore();
-                }
-                else
-                {
-                    attachmentScores[v].mixWildScore() = addLogProb(attachmentScores[v].mixWildScore(), attachmentScores[parentNode].mixWildScore());
-                    attachmentScores[v].mixHomScore() = addLogProb(attachmentScores[v].mixHomScore(), attachmentScores[parentNode].mixHomScore());
+                attachmentSumScores[v].lossAltRScore() =
+                        addLogProb(attachmentScores[v].lossAltRScore() - std::log(attachmentScores[v].numAltRPoss()),
+                                   attachmentSumScores[pN].lossAltRScore());
+            }
+            else
+            {
+                attachmentSumScores[v].lossAltRScore() =
+                        addLogProb(attachmentScores[v].lossAltRScore(),
+                                   attachmentSumScores[pN].lossAltRScore());
+
+            }
+            unsigned loc_num_parent_nodes = passDownAttachmentSumScores[v].numParentNodes();
+            if (loc_num_parent_nodes <= 2){
+                loc_num_parent_nodes = 2;
+            }
+
+            passDownAttachmentSumScores[v].lossAltInCurrentNodeRScore() =
+                    addLogProb(passDownAttachmentScores[v].lossAltInCurrentNodeRScore() - std::log(loc_num_parent_nodes),
+                               passDownAttachmentSumScores[pN].lossAltInCurrentNodeRScore());
+            if (attachmentScores[v].numInnerNodes() >  0){
+                attachmentSumScores[v].lossWildScore() =
+                        addLogProb(attachmentScores[v].lossWildScore() - std::log(attachmentScores[v].numInnerNodes()),
+                                   attachmentSumScores[pN].lossWildScore());
+            }
+            else
+            {
+                attachmentSumScores[v].lossWildScore() =
+                        addLogProb(attachmentScores[v].lossWildScore(),
+                                   attachmentSumScores[pN].lossWildScore());
+            }
+
+            unsigned ppN = source(*in_edges(pN, g).first, g);
+            passDownAttachmentSumScores[v].sibNodeScore() = attachmentScores[getSibling(g, v)].hetSumScore();
+            if (ppN != num_vertices(config.getTree()) - 1) {
+                passDownAttachmentSumScores[v].sibNodeScore() = addLogProb(
+                        passDownAttachmentSumScores[v].sibNodeScore(),
+                        passDownAttachmentSumScores[pN].sibNodeScore());
+            }
+            passDownAttachmentScores[v].paralleleScore() =
+                    attachmentScores[v].hetScore() + passDownAttachmentSumScores[v].sibNodeScore();
+            if (g[sN].sample == -1) {
+                passDownAttachmentScores[v].paralleleScore() = subLogProb(
+                        passDownAttachmentScores[v].paralleleScore(),
+                        attachmentScores[v].hetScore() +
+                        addLogProb(attachmentScores[sN].hetScore(), attachmentScores[sN].childHetSumScore()));
+            }
+            if (ppN != num_vertices(config.getTree()) - 1) {
+                int spn = getSibling(g, (TVertex) pN);
+                if (g[spn].sample == -1) {
+                    passDownAttachmentScores[v].paralleleScore() = subLogProb(
+                            passDownAttachmentScores[v].paralleleScore(),
+                            attachmentScores[v].hetScore() + attachmentScores[spn].hetScore());
                 }
             }
-        }
-        else
-        {
-            sumScore.hetScore() = addLogProb(sumScore.hetScore(), attachmentScores[v].hetScore());
-            attachmentScores[v].homScore() = attachmentScores[parentNode].homScore();
-            attachmentScores[v].hetScore() = addLogProb(attachmentScores[v].hetScore(), attachmentScores[parentNode].hetScore());
             
-            if(config.computeMixScore)
-            {
-                unsigned grandParent = source(*in_edges(parentNode, g).first, g);
-                if (grandParent == num_vertices(config.getTree()) - 1)
-                {
-                    attachmentScores[v].mixWildScore() = -INFINITY;
-                    attachmentScores[v].mixHomScore() = -INFINITY;
-                }
-                else
-                {
-                    attachmentScores[v].mixWildScore() = attachmentScores[parentNode].mixWildScore();
-                    attachmentScores[v].mixHomScore() = attachmentScores[parentNode].mixHomScore();
-                }
-            }
+            long double loc_parallel = passDownAttachmentScores[v].paralleleScore();
+            passDownAttachmentSumScores[v].paralleleScore() = addLogProb(
+                    loc_parallel,
+                    passDownAttachmentSumScores[pN].paralleleScore());
+            sumParallel = addLogProb(sumParallel, loc_parallel); 
+
+
+        } else {
+
+            attachmentSumScores[v].hetScore() =
+                    addLogProb(attachmentScores[v].hetScore(),
+                               attachmentSumScores[pN].hetScore());
+            attachmentSumScores[v].homScore() = attachmentSumScores[pN].homScore();
+            attachmentSumScores[v].lossAltRScore() = subLogProb(
+                    attachmentSumScores[pN].lossAltRScore(),
+                    passDownAttachmentSumScores[pN].lossAltInCurrentNodeRScore());
+            passDownAttachmentSumScores[v].lossAltInCurrentNodeRScore() = passDownAttachmentSumScores[pN].lossAltInCurrentNodeRScore();
+            attachmentSumScores[v].lossWildScore() = attachmentSumScores[pN].lossWildScore();
+            passDownAttachmentSumScores[v].paralleleScore() = passDownAttachmentSumScores[pN].paralleleScore();
         }
-    }
-};
-
-
-// experimental phase
-class ComputeLostScoreDFSVisitor : public boost::default_dfs_visitor
-{
-    Config<SampleTree> & config;
-    Config<SampleTree>::TAttachmentScores const & attachmentScores;
-    std::vector<double> & lostScores;
-    double & leafScore;
-
-public:
-
-    ComputeLostScoreDFSVisitor(Config<SampleTree> & config_, 
-            Config<SampleTree>::TAttachmentScores const & attachmentScores_,
-            std::vector<double> & lostScores_,
-            double & leafScore_,
-            unsigned attachment_) : 
-        config(config_),
-        attachmentScores(attachmentScores_),
-        lostScores(lostScores_),
-        leafScore(leafScore_)
-    {}
-
-    template <typename TVertex >
-    void discover_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) //const
-    {
-        // this is the artificial node which needs to be excludede
-        if (v == num_vertices(config.getTree()) - 1)
-        {
-            return;
-        }
-
-        unsigned parentNode = source(*in_edges(v, g).first, g);
-
-        // this is the root node which needs to be excludede
-        if (parentNode == num_vertices(config.getTree()) - 1)
-        {
-            return;
-        }
-        
-        if (g[v].sample == -1) // inner node
-        {
-            // if the parent node is the root then there should be no summation of the nodes
-            if (source(*in_edges(parentNode, g).first, g) == num_vertices(config.getTree()) - 1)
-            {
-                lostScores[v] = attachmentScores[parentNode].hetScore() - attachmentScores[v].hetScore();
-                leafScore = addLogProb(leafScore, lostScores[v]);
-            }
-            else
-            {
-                lostScores[v] = attachmentScores[parentNode].hetScore() - attachmentScores[v].hetScore();
-                lostScores[v] = addLogProb(lostScores[v], lostScores[parentNode] + attachmentScores[getSibling(g, v)].hetScore());
-                leafScore = addLogProb(leafScore, lostScores[v]);
-            }
-        }
-        else // leaf
-        {
-            if (source(*in_edges(parentNode, g).first, g) == num_vertices(config.getTree()) - 1)
-            {
-                lostScores[v] = -INFINITY;
-            }
-            else
-            {
-                lostScores[v] = leafScore;
-            }
-        }
-    }
-
-    template <typename TVertex >
-    void finish_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) 
-    {
-        if (v == num_vertices(config.getTree()) - 1)
-        {
-            return;
-        }
-
-        unsigned parentNode = source(*in_edges(v, g).first, g);
-        if (parentNode == num_vertices(config.getTree()) - 1)
-        {
-            return;
-        }
-        if (g[v].sample == -1) // inner node
-        {
-            // if the parent node is the root then there should be no summation of the nodes
-            if (source(*in_edges(parentNode, g).first, g) == num_vertices(config.getTree()) - 1)
-            {
-                leafScore = subLogProb(leafScore, lostScores[v]);
-            }
-            else
-            {
-                leafScore = subLogProb(leafScore, lostScores[v]);
-            }
-        }
-
     }
 };
 
 /*
  * This function is used to optimize mean and overdispersion
- * for a given loci
+ * for a given locus
  */
-struct OptimizeBetaBinMeanOverDis
-{
-    std::vector<std::pair<unsigned, unsigned>> const & counts;
+struct OptimizeBetaBinMeanOverDis {
+    std::vector<std::pair<unsigned, unsigned>> const &counts;
 
     OptimizeBetaBinMeanOverDis(
-            std::vector<std::pair<unsigned, unsigned>> const & counts_) :
-        counts(counts_)
-    {};
+            std::vector<std::pair<unsigned, unsigned>> const &counts_) :
+            counts(counts_) {};
 
-    double operator()(const dlib::matrix<double,0,1> & x) const
-    {
+    double operator()(const dlib::matrix<double, 0, 1> &x) const {
         double result = 0;
-        for (size_t cell = 0; cell < this->counts.size(); ++cell)
-        {
+        for (size_t cell = 0; cell < this->counts.size(); ++cell) {
             result += logBetaBinPDF(this->counts[cell].first, this->counts[cell].second, x(0), x(1));
         }
         return result;
     };
 };
 
-struct OptimizeBetaBinMeanOverDisDerivates
-{
-    std::vector<std::pair<unsigned, unsigned>> const & counts;
+struct OptimizeBetaBinMeanOverDisDerivates {
+    std::vector<std::pair<unsigned, unsigned>> const &counts;
 
     OptimizeBetaBinMeanOverDisDerivates(
-            std::vector<std::pair<unsigned, unsigned>> const & counts_) :
-        counts(counts_)
-    {}
+            std::vector<std::pair<unsigned, unsigned>> const &counts_) :
+            counts(counts_) {}
 
-    dlib::matrix<double> operator()(const dlib::matrix<double,0,1> & x) const
-    {
+    dlib::matrix<double> operator()(const dlib::matrix<double, 0, 1> &x) const {
         double mean = x(0);
         double overDis = x(1);
-        dlib::matrix<double,0,1> res = {0,0};
+        dlib::matrix<double, 0, 1> res = {0, 0};
 
         double temp = 0;
         unsigned counter = 0;
-        for (size_t cell = 0; cell < this->counts.size(); ++cell)
-        {
+        for (size_t cell = 0; cell < this->counts.size(); ++cell) {
             unsigned k = this->counts[cell].first;
             unsigned n = this->counts[cell].second;
-            temp += overDis *  boost::math::digamma(k + mean * overDis)
-                - overDis *  boost::math::digamma(n - k + overDis - overDis * mean);
+            temp += overDis * boost::math::digamma(k + mean * overDis)
+                    - overDis * boost::math::digamma(n - k + overDis - overDis * mean);
             ++counter;
         }
-        res(0) = counter * (-overDis *  boost::math::digamma(mean * overDis) + overDis *  boost::math::digamma(overDis - overDis * mean)) + temp;
+        res(0) = counter * (-overDis * boost::math::digamma(mean * overDis) +
+                            overDis * boost::math::digamma(overDis - overDis * mean)) + temp;
 
         temp = 0;
-        for (size_t cell = 0; cell < this->counts.size(); ++cell)
-        {
+        for (size_t cell = 0; cell < this->counts.size(); ++cell) {
             unsigned k = this->counts[cell].first;
             unsigned n = this->counts[cell].second;
             temp += mean * boost::math::digamma(k + mean * overDis) +
-                (1.0 - mean) * boost::math::digamma(n - k + overDis - overDis * mean) -
-                 boost::math::digamma(n + overDis);
+                    (1.0 - mean) * boost::math::digamma(n - k + overDis - overDis * mean) -
+                    boost::math::digamma(n + overDis);
         }
-        res(1) = counter * (boost::math::digamma(overDis) - mean * boost::math::digamma(mean * overDis) - (1.0 - mean) * boost::math::digamma(overDis - overDis * mean)) + temp;
+        res(1) = counter * (boost::math::digamma(overDis) - mean * boost::math::digamma(mean * overDis) -
+                            (1.0 - mean) * boost::math::digamma(overDis - overDis * mean)) + temp;
 
         return res;
     }
 };
 
-struct OptimizeBetaBinOverDis
-{
-    std::vector<std::pair<unsigned, unsigned>> const & counts;
+struct OptimizeBetaBinOverDis {
+    std::vector<std::pair<unsigned, unsigned>> const &counts;
     double meanFilter;
 
     OptimizeBetaBinOverDis(
-            std::vector<std::pair<unsigned, unsigned>> const & counts_, 
-            double meanFilter_) : 
-        counts(counts_),
-        meanFilter(meanFilter_)
-    {};
+            std::vector<std::pair<unsigned, unsigned>> const &counts_,
+            double meanFilter_) :
+            counts(counts_),
+            meanFilter(meanFilter_) {};
 
-    double operator()(const dlib::matrix<double,0,1> & x) const
-    {
+    double operator()(const dlib::matrix<double, 0, 1> &x) const {
         double result = 0;
-        for (size_t cell = 0; cell < this->counts.size(); ++cell)
-        {
-             result += logBetaBinPDF(this->counts[cell].first, this->counts[cell].second, meanFilter, x(0));
+        for (size_t cell = 0; cell < this->counts.size(); ++cell) {
+            result += logBetaBinPDF(this->counts[cell].first, this->counts[cell].second, meanFilter, x(0));
         }
         return result;
     };
 };
 
-struct OptimizeBetaBinOverDisDerivates
-{
-    std::vector<std::pair<unsigned, unsigned>> const & counts;
+struct OptimizeBetaBinOverDisDerivates {
+    std::vector<std::pair<unsigned, unsigned>> const &counts;
     double meanFilter;
 
     OptimizeBetaBinOverDisDerivates(
-            std::vector<std::pair<unsigned, unsigned>> const & counts_, 
-            double meanFilter_) : 
-        counts(counts_),
-        meanFilter(meanFilter_)
-    {};
+            std::vector<std::pair<unsigned, unsigned>> const &counts_,
+            double meanFilter_) :
+            counts(counts_),
+            meanFilter(meanFilter_) {};
 
-    dlib::matrix<double> operator()(const dlib::matrix<double,0,1> & x) const
-    {
+    dlib::matrix<double> operator()(const dlib::matrix<double, 0, 1> &x) const {
         double mean = this->meanFilter;
         double overDis = x(0);
-        dlib::matrix<double,0,1> res = {0};
+        dlib::matrix<double, 0, 1> res = {0};
 
         double temp = 0;
         unsigned counter = 0;
-        for (size_t cell = 0; cell < this->counts.size(); ++cell)
-        {
+        for (size_t cell = 0; cell < this->counts.size(); ++cell) {
             unsigned k = this->counts[cell].first;
             unsigned n = this->counts[cell].second;
             temp += mean * boost::math::digamma(k + mean * overDis) +
-                (1.0 - mean) * boost::math::digamma(n - k + overDis - overDis * mean) -
-                 boost::math::digamma(n + overDis);
+                    (1.0 - mean) * boost::math::digamma(n - k + overDis - overDis * mean) -
+                    boost::math::digamma(n + overDis);
             ++counter;
         }
-        res(0) = counter * (boost::math::digamma(overDis) - mean * boost::math::digamma(mean * overDis) - (1.0 - mean) * boost::math::digamma(overDis - overDis * mean)) + temp;
+        res(0) = counter * (boost::math::digamma(overDis) - mean * boost::math::digamma(mean * overDis) -
+                            (1.0 - mean) * boost::math::digamma(overDis - overDis * mean)) + temp;
 
         return res;
     }
 };
-
-
 
 #endif

@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -23,6 +23,9 @@
 #ifndef NOISE_COUNTS_H
 #define NOISE_COUNTS_H
 
+// This data structure stores how many times each coverage, suppoert, and their difference was observed. It will
+// store this information from the lowest to the highest values. If a certain value is not observed there will be
+// an entry with a zero.
 struct GappedNoiseCounts
 {
     std::vector<uint64_t> cov;
@@ -60,8 +63,11 @@ std::ostream& operator<<(std::ostream & os, const GappedNoiseCounts & noiseCount
     for (unsigned i = 0; i < noiseCounts.covMinusSup.size(); ++i)
         os << "\t" << i<< ":" << noiseCounts.covMinusSup[i];
     return os;  
-}  
+}
 
+// This data structure stores how many times each coverage, suppoert, and their difference was observed. It will
+// store this information from the lowest to the highest values. If a certain value is not observed it will not be
+// stored, such that this structure is more space effcient than GappedNoiseCounts.
 struct NoiseCounts
 {
     std::vector<std::pair<uint32_t, uint64_t>> cov;
@@ -69,7 +75,13 @@ struct NoiseCounts
     std::vector<std::pair<uint32_t, uint64_t>> covMinusSup;
     uint64_t numPos;
 
-    NoiseCounts(){}
+    NoiseCounts()
+    {
+        this->cov.resize(0);
+        this->sup.resize(0);
+        this->covMinusSup.resize(0);
+        this->numPos = 0;
+    }
 
     NoiseCounts(GappedNoiseCounts const & gappedNoiseCounts)
     {
@@ -115,5 +127,5 @@ std::ostream& operator<<(std::ostream & os, const NoiseCounts & noiseCounts)
     for (unsigned i = 0; i < noiseCounts.covMinusSup.size(); ++i)
         os << "\t" << noiseCounts.covMinusSup[i].first << ":" << noiseCounts.covMinusSup[i].second;
     return os;  
-}  
+};
 #endif

@@ -24,49 +24,52 @@ args <- commandArgs(TRUE)
 
 inputName <- args[1]
 df <- read.table(inputName, header = TRUE)
-df$zyg <- as.factor(df$zyg)
+df$loss <- as.factor(df$loss)
+df$tool <- factor(df$tool, levels = c("Monovar", "SCIPhI", "SCIPhIN"))
 
-ggplot(data = df, aes(x = zyg, y = recall, fill = tool)) + 
+
+ggplot(data = df, aes(x = loss, y = recall, fill = tool)) +
   geom_point(position = position_jitterdodge(jitter.width = 1), aes(colour = tool), show.legend = FALSE) +
   geom_boxplot(outlier.size = NULL, outlier.shape = NA, alpha = 0.5) +
-  xlab("Homozygosity rate") +
+  xlab("Fraction of mutation losses") +
   ylab("Recall") +
-  expand_limits(y=0.55) +
-  expand_limits(y=1) +
-  theme(legend.position = c(0.8, 0.2),
-        legend.title=element_blank(),
-        legend.text.align = 0,
-        text = element_text(size=25),
-        legend.key.size = unit(3., 'lines'))+
-  scale_fill_discrete("", labels=c("Monovar", expression(paste("SCI", Phi))))
-ggsave(paste(gsub(".txt","",inputName), "_rec.pdf", sep=""))
+  scale_y_continuous(limits = c(min(0.5, df$recall - 0.01), 1)) +
 
-ggplot(data = df, aes(x = zyg, y = precision, fill = tool)) +
+  theme(legend.title=element_blank(),
+        legend.position = c(0.2, 0.2),
+        text = element_text(size=25),
+        legend.text.align = 0,
+        legend.key.size = unit(3., 'lines')) +
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
+ggsave(paste(gsub(".txt","",inputName), "_rec.pdf", sep=""))
+  
+ggplot(data = df, aes(x = loss, y = precision, fill = tool)) +
   geom_point(position = position_jitterdodge(jitter.width = 1), aes(colour = tool), show.legend = FALSE) +
   geom_boxplot(outlier.size = NULL, outlier.shape = NA, alpha = 0.5) +
-  xlab("Homozygosity rate") +
+  xlab("Fraction of mutation losses") +
   ylab("Precision") +
   expand_limits(y=0.9) +
-  expand_limits(y=1) +
-  theme(legend.position = c(0.8, 0.2),
-        legend.title=element_blank(),
-        legend.text.align = 0,
+  theme(legend.title=element_blank(),
+        legend.position = c(0.2, 0.2),
         text = element_text(size=25),
+        legend.text.align = 0,
         legend.key.size = unit(3., 'lines')) +
-  scale_fill_discrete("", labels=c("Monovar", expression(paste("SCI", Phi))))
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
 ggsave(paste(gsub(".txt","",inputName), "_pre.pdf", sep=""))
 
-ggplot(data = df, aes(x = zyg, y = f1, fill = tool)) +
+ggplot(data = df, aes(x = loss, y = f1, fill = tool)) +
   geom_point(position = position_jitterdodge(jitter.width = 1), aes(colour = tool), show.legend = FALSE) +
   geom_boxplot(outlier.size = NULL, outlier.shape = NA, alpha = 0.5) +
-  xlab("Homozygosity rate") +
+  xlab("Fraction of mutation losses") +
   ylab("F1 score") +
-  expand_limits(y=0.6) +
-  expand_limits(y=1) +
-  theme(legend.position = c(0.8, 0.2),
-        legend.title=element_blank(),
-        legend.text.align = 0,
+  scale_y_continuous(limits = c(min(0.6, df$f1 - 0.01), 1)) +
+  theme(legend.title=element_blank(),
+        legend.position = c(0.2, 0.2),
         text = element_text(size=25),
+        legend.text.align = 0,
         legend.key.size = unit(3., 'lines')) +
-  scale_fill_discrete("", labels=c("Monovar", expression(paste("SCI", Phi))))
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
 ggsave(paste(gsub(".txt","",inputName), "_f1.pdf", sep=""))

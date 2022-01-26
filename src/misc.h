@@ -21,43 +21,18 @@
  * @author: Jochen Singer
  */
 
-#ifndef RAND_H
-#define RAND_H
+#ifndef MISC_H
+#define MISC_H
 
-#include <vector>
-#include "rand.h"
-#include <iostream>
-#include <random>
-#include <stdlib.h>
-#include <time.h>
+#include <math.h>
 
-//using namespace std;
+//void addNaNSensitive(double a, double b)
+//{
+//    if (std::isnan(a))
+//    {
+//        return b;
+//    }
+//    return
+//}
 
-
-/*****    functions for sampling random numbers inside C++  *****/
-inline 
-void 
-initRand(){
-	std::time_t t;
-    time(&t);
-    std::srand((unsigned int)t);              // initialize random number generator
-	//srand(1);
-}
-
-inline
-int
-sampleRandomMove(std::array<double, 4> const & prob)
-{ 
-
-    double percent = rand() % 100;
-    double sum = prob[0];
-    for(std::size_t i=0; i<prob.size()-1; i++){
-        if(percent <= sum*100){
-          return i+1;
-        }
-        sum += prob[i+1];
-    }
-    return prob.size();
-}
-
-#endif
+#endif //MISC_H

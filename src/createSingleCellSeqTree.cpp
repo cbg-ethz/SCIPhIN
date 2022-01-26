@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -56,10 +56,9 @@ struct Options
     unsigned numPositions;
 	double dropOutRate;
 	double missingInformation;
-    double clbm; // chromosome loss before mutation happend
-    double clam; // chromosome loss after mutation happend
+    double clbm; // chromosome loss before mutation occurred
     double cpn; // fraction of mutations with copy number changes
-    unsigned numRecMut; // number of reccuring mutations
+    unsigned numRecMut; // number of recurring mutations
     unsigned numLossMut; // number of mutations lost
     bool assignMutationsToLeafs;
 	unsigned seed;
@@ -71,9 +70,9 @@ struct Options
 		dropOutRate(0.0),
 		missingInformation(0.0),
         clbm(0.0),
-        clam(0.0),
         cpn(0.0),
         numRecMut(0),
+        numLossMut(0),
         assignMutationsToLeafs(true),
 		seed(42)
 	{};
@@ -94,7 +93,6 @@ parseCommandLine(Options & options, int argc, char const ** argv)
 	addOption(parser, ArgParseOption("np", "NumPositions", "Number of positions to generate.", ArgParseArgument::INTEGER, "NUMMUTATIONS"));
 	addOption(parser, ArgParseOption("dor", "DropOutRate", "The allelic drop out rate.", ArgParseArgument::DOUBLE, "DROPOUTRATE"));
 	addOption(parser, ArgParseOption("clbm", "ChromLostBeforeMutation", "Fraction of homocygous mutations.", ArgParseArgument::DOUBLE, "cygocitycoeff"));
-	addOption(parser, ArgParseOption("clam", "ChromLosAfterMut", "The allelic drop out rate.", ArgParseArgument::DOUBLE, "DROPOUTRATE"));
 	addOption(parser, ArgParseOption("cpn", "CopyNumber", "The copy number rate.", ArgParseArgument::DOUBLE, "COPYNUMBERRATE"));
 	addOption(parser, ArgParseOption("nrm", "NumRecMutations", "Number of reccuring mutations.", ArgParseArgument::INTEGER, "NUMRECMUTS"));
 	addOption(parser, ArgParseOption("nlm", "NumLossMutations", "Number of mutations lost.", ArgParseArgument::INTEGER, "NUMLOSSMUTS"));
@@ -143,8 +141,6 @@ parseCommandLine(Options & options, int argc, char const ** argv)
         getOptionValue(options.dropOutRate, parser, "dor");
     if (isSet(parser, "clbm"))
         getOptionValue(options.clbm, parser, "clbm");
-    if (isSet(parser, "clam"))
-        getOptionValue(options.clam, parser, "clam");
     if (isSet(parser, "cpn"))
         getOptionValue(options.cpn, parser, "cpn");
     if (isSet(parser, "nrm"))
@@ -273,9 +269,31 @@ void assignMutation(
 // This function checks if they are in different lineages
 bool recMutInDifferentLineages(unsigned firstPlace,
                                 unsigned secondPlace,
-                                unsigned mut,
                                 std::vector<unsigned> const & treeStructure)
 {
+    // Check whether the two nodes are the same.
+    if (firstPlace == secondPlace)
+    {
+        return false;
+    }
+
+    // Check whether the two nodes are siblings
+    int firstParent = treeStructure[firstPlace];
+    int secondParent = treeStructure[secondPlace];
+    if (firstParent == secondParent)
+    {
+        return false;
+    }
+
+    // Check whether the two nodes are in a aunt/uncle relationship
+    int firstGrantParent = treeStructure[firstParent];
+    int secondGrantParent = treeStructure[secondParent];
+    if ( (firstGrantParent == secondParent) || firstParent == secondGrantParent)
+    {
+        return false;
+    }
+
+    // Check whether the two nodes are in the same linage
     int firstIndex = firstPlace;
     while(firstIndex != -1)
     {
@@ -295,23 +313,30 @@ bool recMutInDifferentLineages(unsigned firstPlace,
         secondIndex = treeStructure[secondIndex];
     }
 
-    if (treeStructure[firstPlace] == treeStructure[secondPlace])
-    {
-        return false;
-    }
+
     return true;
     
 }
+
+// This function checks if two random nodes are in the same lineage and that they are not in a parent relationship.
 bool lossInSameLineage(unsigned firstPlace,
                                 unsigned secondPlace,
-                                unsigned mut,
+                                bool isRefLost,
                                 std::vector<unsigned> const & treeStructure)
 {
-    if ( (firstPlace == secondPlace) || (treeStructure[secondPlace] == firstPlace) )
+    // Check whether the two nodes are the same.
+    if (firstPlace == secondPlace)
     {
         return false;
     }
-    
+
+    // If the mutated allele was lost the nodes must not be in a parent relationship
+    if (!isRefLost && (treeStructure[secondPlace] == firstPlace) )
+    {
+        return false;
+    }
+
+    // Check if the first node is somewhere above the second node
     while(secondPlace != -1)
     {
         if (secondPlace == firstPlace)
@@ -324,8 +349,90 @@ bool lossInSameLineage(unsigned firstPlace,
     return false;
 }
 
-unsigned getRandomNodeId(std::vector<unsigned> const & treeStructure, Options const & options)
+unsigned getPossibleLossPlaces(std::vector<unsigned> const & treeStructure, unsigned pos, bool mutLos)
 {
+    std::vector<bool> isBelow;
+    isBelow.resize(treeStructure.size()/2, 0);
+
+    for (unsigned i = 0; i < isBelow.size(); ++i){
+        bool below = false;
+        unsigned id = i;
+        while (treeStructure[id] != -1)
+        {
+            //std::cout << "id: " << id <<  " " << pos << std::endl;
+            if (treeStructure[id] == pos)
+            {
+                below = true;
+                break;
+            }
+            id = treeStructure[id];
+        }
+        if (below)
+        {
+            isBelow[i] = 1;
+        }
+    }
+
+    //for (int j = 0; j < isBelow.size(); ++j){
+    //    std::cout<< j << ": is " << isBelow[j] << std::endl;
+   // }
+
+    int possiblePlaces = 0;
+    for (unsigned i = 0; i < isBelow.size(); ++i){
+        if (isBelow[i])
+        {
+            if (mutLos)
+            {
+                if (treeStructure[i] != pos)
+                {
+                    ++possiblePlaces;
+                }
+            }
+            else
+            {
+                ++possiblePlaces;
+            }
+        }
+    }
+
+    //std::cout << "pos: " << possiblePlaces << std::endl;
+
+    return possiblePlaces;
+}
+
+unsigned getRandomNodeId(std::vector<unsigned> const & treeStructure, Options const & options, bool simLoss = false, bool mutLoss = true)
+{
+    //if (simLoss)
+    //{
+    //    std::vector<int> numBelow;
+    //    numBelow.resize(treeStructure.size()/2, 0);
+    //    int sumBelow = 0;
+    //    for (unsigned i = 0; i < numBelow.size(); ++i)
+    //    {
+    //        numBelow[i] = getPossibleLossPlaces(treeStructure, i, mutLoss);
+    //        sumBelow += numBelow[i];
+    //    }
+    //    int id = rand() % sumBelow;
+    //    unsigned localSum = 0;
+    //    int i = 0;
+
+
+    //    //for (int j = 0; j < numBelow.size(); ++j){
+    //    //    std::cout<< j << ": " << numBelow[j] << std::endl;
+    //   // }
+
+    //    for (; i < numBelow.size(); ++i)
+    //    {
+    //        localSum += numBelow[i];
+    //        if (localSum >= id)
+    //        {
+    //            break;
+    //        }
+    //    }
+    //    return i;
+    //    
+    //}
+
     if (options.assignMutationsToLeafs)
     {
         return rand() % (treeStructure.size());
@@ -351,29 +458,29 @@ std::vector<std::vector<int>> assignMutationToNodesSampleTree(std::vector<unsign
     for (; i < options.numMutations; ++i)
     {
         unsigned nodeId = getRandomNodeId(treeStructure, options);
-        if (options.numRecMut > i + 1)
+        if (options.numRecMut > i)
         {
             unsigned nodeIdTwo = getRandomNodeId(treeStructure, options);
-            while (!recMutInDifferentLineages(nodeId, nodeIdTwo, i, treeStructure))
+            while (!recMutInDifferentLineages(nodeId, nodeIdTwo, treeStructure))
             {
                 nodeId = getRandomNodeId(treeStructure, options);
                 nodeIdTwo = getRandomNodeId(treeStructure, options);
             }
-            std::cout << "rec: " << nodeId << " " << nodeIdTwo << std::endl;
             assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeId, i, mutType, numMutsPerNode, options);
             assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeIdTwo, i, mutType, numMutsPerNode, options);
         }
-        else if (options.numRecMut + options.numLossMut > i + 1)
+        else if (options.numRecMut + options.numLossMut > i)
         {
+            bool isRefLost = rand() % 2;
+            unsigned nodeId = getRandomNodeId(treeStructure, options, true);
             unsigned nodeIdTwo = getRandomNodeId(treeStructure, options);
-            while (!lossInSameLineage(nodeId, nodeIdTwo, i, treeStructure))
+            while (!lossInSameLineage(nodeId, nodeIdTwo, isRefLost, treeStructure))
             {
                 nodeId = getRandomNodeId(treeStructure, options);
                 nodeIdTwo = getRandomNodeId(treeStructure, options);
             }
-            std::cout << "loss: " << nodeId << " " << nodeIdTwo << std::endl;
             assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeId, i, mutType, numMutsPerNode, options);
-            assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeIdTwo, i, 0, numMutsPerNode, options);
+            assignMutation(mutationToNodeAssignment, treeStructure, childVector, nodeIdTwo, i, isRefLost ? 3 : 0, numMutsPerNode, options);
         }
         else
         {
@@ -516,9 +623,7 @@ insertDropOuts(std::vector<std::vector<int>> const & mutationToSample, Options c
                 }
                 if (mutationToSampleWithDropouts[i][j] < 0 || mutationToSampleWithDropouts[i][j] >= 6)
                 {
-                    std::cout << "0: " << mutationToSampleWithDropouts[i][j] << std::endl;
                     mutationToSampleWithDropouts[i][j] = copyNumberDropOut(mutationToSampleWithDropouts[i][j], options);
-                    std::cout << "1: " << mutationToSampleWithDropouts[i][j] << std::endl;
                 }
             }
         }
@@ -678,9 +783,6 @@ int main(int argc, const char* argv[]){
     // were errors and 0 if there were none.
     if (res != ArgumentParser::PARSE_OK)
         return res == ArgumentParser::PARSE_ERROR;
-
-    //std::cout << "create_single_cell_seq_tree\n"
-    //          << "================\n\n";
 
     srand(options.seed + 2); // srand(1) is reserved
 

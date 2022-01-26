@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -41,10 +41,12 @@
 #include "scoreTree.h"
 #include "output.h"
 
-using namespace std;
+//using namespace std;
 
 // This function returns the node ID of the sibling of node "vertex"
-unsigned getSibling(typename Config<SampleTree>::TGraph const & g, unsigned vertex)
+inline
+unsigned
+getSibling(typename Config<SampleTree>::TGraph const & g, unsigned vertex)
 {
     unsigned parentNode = source(*in_edges(vertex, g).first, g);
     if (target(*out_edges(parentNode,  g).first, g) == vertex)
@@ -56,6 +58,25 @@ unsigned getSibling(typename Config<SampleTree>::TGraph const & g, unsigned vert
 
 //TODO write specialization for sampletree
 // This function draws a new sibling node for a given vertex
+
+class ExtractNodesBFSVisitor : public boost::default_bfs_visitor {
+    boost::dynamic_bitset<> &bitSet;
+    unsigned &numElements;
+
+public:
+
+    ExtractNodesBFSVisitor(boost::dynamic_bitset<> &bitSet_, unsigned &numElements_) :
+            bitSet(bitSet_),
+            numElements(numElements_) {}
+
+    template<typename Vertex, typename Graph>
+    void discover_vertex(Vertex v, const Graph &g) {
+        (void) g;
+        this->bitSet[v] = true;
+        ++this->numElements;
+    }
+};
+
 template <typename TTreeType>
 unsigned getNewSibling(Config<TTreeType> const & config, unsigned vertex)
 {
@@ -199,6 +220,11 @@ void createInitialTree(Config<SampleTree> & config)
     // add artificial node
     add_edge(2 * config.getNumSamples() - 1, 0, config.getTree());
 
+    for (unsigned i = 0; i < 10 * config.getNumSamples(); ++i)
+    {
+        pruneAndReAttach(config);
+    }
+
     config.setTmpTree(config.getTree());
 }
 
@@ -304,30 +330,7 @@ getMutationsOfNode(Config<TTreeType> & config)
     return mutationsOfNodes;
 }
 
-// This function simplifies a tree bu removing nodes without mutations assigned
-boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>> 
-simplifyTree(Config<SampleTree> & config)
-{
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, 
-                            boost::bidirectionalS, Vertex<SimpleTree>> TGraph;
-    TGraph newTree;
-    std::vector<std::vector<unsigned> > mutationsOfNodes = getMutationsOfNode(config);    
-    std::stack<unsigned> processedVertices;
 
-    SimplifyTreeDFSVisitor vis(newTree, mutationsOfNodes, processedVertices);
-    unsigned rootVertex = target(*out_edges(num_vertices(config.getTree()) - 1, config.getTree()).first, config.getTree());
-    depth_first_search(config.getTree(), visitor(vis).root_vertex(rootVertex));
-
-    return newTree;
-}
-
-// This function prints the tree
-inline
-void printTree(Config<MutationTree>::TGraph const & g, std::string const & fileName)
-{
-    std::ofstream ofs(fileName.c_str());
-    write_graphviz(ofs, g, boost::make_label_writer(boost::get(&Config<MutationTree>::TGraph::vertex_property_type::mutation, g)));
-}
 
 // This function prints the mutation to sample assignment to disc
 inline
@@ -361,77 +364,274 @@ void printMutation2SampleAssignment(Config<SampleTree> & config,
     outFile.close();
 }
 
-// This class is experimental and computes the number of possibilites a 
-// chromosome could have been lost after a mutation occured
-class ComputeNumPlacementsDFSVisitor : public boost::default_dfs_visitor
-{
-    Config<SampleTree> const & config;
-    std::vector<unsigned> & numPlacements;
+//// This class is experimental and computes the number of possibilities a
+//// chromosome could have been lost after a mutation occurred
+//class ComputeNumPlacementsDFSVisitor : public boost::default_dfs_visitor
+//{
+//    Config<SampleTree> const & config;
+//    std::vector<unsigned> & numPlacements;
+//
+//public:
+//
+//    ComputeNumPlacementsDFSVisitor(Config<SampleTree> const & config_,
+//            std::vector<unsigned> & numPlacements_) :
+//        config(config_),
+//        numPlacements(numPlacements_)
+//    {}
+//
+//    template <typename TVertex >
+//    void discover_vertex(TVertex v, boost::adjacency_list<boost::vecS,
+//                                  boost::vecS,
+//                                  boost::bidirectionalS,
+//                                  Vertex<SampleTree>> const & g) const
+//    {
+//        if (v == num_vertices(g) - 1)
+//        {
+//            numPlacements[v] = 0;
+//            return;
+//        }
+//        return;
+//
+//    }
+//
+//    template <typename TVertex >
+//    void finish_vertex(TVertex v, boost::adjacency_list<boost::vecS,
+//                                  boost::vecS,
+//                                  boost::bidirectionalS,
+//                                  Vertex<SampleTree>> const & g) const
+//    {
+//        if (v == num_vertices(g) - 1)
+//        {
+//            return;
+//        }
+//
+//        if (g[v].sample != -1)
+//        {
+//            numPlacements[v] = 0;
+//            return ;
+//        }
+//
+//        auto it = out_edges(v,g).first;
+//        unsigned lN = target(*it, g);
+//        unsigned rN = target(*(it + 1), g);
+//
+//        numPlacements[v] = numPlacements[lN] + numPlacements[rN];
+//
+//        // go to the left
+//        if (g[lN].sample == -1)
+//        {
+//            auto itL = out_edges(lN,g).first;
+//            unsigned llN = target(*itL, g);
+//            if(g[llN].sample == -1)
+//            {
+//                ++numPlacements[v];
+//            }
+//            unsigned rlN = target(*(itL + 1), g);
+//            if(g[rlN].sample == -1)
+//            {
+//                ++numPlacements[v];
+//            }
+//        }
+//        // go to the right
+//        if (g[rN].sample == -1)
+//        {
+//            auto itR = out_edges(rN,g).first;
+//            unsigned lrN = target(*itR, g);
+//            if(g[lrN].sample == -1)
+//            {
+//                ++numPlacements[v];
+//            }
+//            unsigned rrN = target(*(itR + 1), g);
+//            if(g[rrN].sample == -1)
+//            {
+//                ++numPlacements[v];
+//            }
+//        }
+//        numPlacements.back() += numPlacements[v];
+//        return ;
+//    }
+//};
+
+class SimplifyTreeDFSVisitor : public boost::default_dfs_visitor {
+    typedef boost::adjacency_list<boost::vecS, boost::vecS,
+            boost::bidirectionalS, Vertex<SimpleTree>> TGraph;
+    typedef std::vector<std::vector<unsigned> > TMutationsOfNodes;
+    typedef std::stack<unsigned> TStack;
+
+    TGraph &newGraph;
+    TMutationsOfNodes const &mutationsOfNodes;
+    TStack &processedVertices;
 
 public:
 
-    ComputeNumPlacementsDFSVisitor(Config<SampleTree> const & config_,
-            std::vector<unsigned> & numPlacements_) :
-        config(config_),
-        numPlacements(numPlacements_)
-    {}
+    SimplifyTreeDFSVisitor(TGraph &graph_,
+                           TMutationsOfNodes const &mutationsOfNodes_,
+                           TStack &processedVertices_) :
+            newGraph(graph_),
+            mutationsOfNodes(mutationsOfNodes_),
+            processedVertices(processedVertices_) {}
 
-    template <typename TVertex >
-    void discover_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) const
-    {
-        if (v == num_vertices(g) - 1)
-        {
-            numPlacements[v] = 0;
+    template<typename Vertex, typename Graph>
+    void discover_vertex(Vertex v, const Graph &g) {
+        (void) g;
+
+        if (v == (num_vertices(g) - 1)) {
             return;
         }
-        return;
 
+        // Add vertex if
+        //      vertex is root
+        //      vertex contains mutation
+        //      vertex is sample
+        if (source(*in_edges(v, g).first, g) == num_vertices(g) - 1 ||
+            this->mutationsOfNodes[v].size() > 0 ||
+            g[v].sample != -1) {
+            unsigned newVertex = add_vertex(newGraph);
+            newGraph[newVertex].mutations = this->mutationsOfNodes[v];
+            if (g[v].sample != -1) {
+                newGraph[newVertex].sample = g[v].sample;
+            }
+
+            // add edge if current vertex is not the root
+            if (source(*in_edges(v, g).first, g) != num_vertices(g) - 1) {
+                add_edge(this->processedVertices.top(), newVertex, this->newGraph);
+            }
+            this->processedVertices.push(newVertex);
+
+        }
     }
-    
-    template <typename TVertex >
-    void finish_vertex(TVertex v, boost::adjacency_list<boost::vecS, 
-                                  boost::vecS, 
-                                  boost::bidirectionalS, 
-                                  Vertex<SampleTree>> const & g) const
-    {
-        if (v == num_vertices(g) - 1)
-        {
+
+    template<typename TVertex>
+    void finish_vertex(TVertex v, boost::adjacency_list<boost::vecS,
+            boost::vecS,
+            boost::bidirectionalS,
+            Vertex<SampleTree>> const &g) const {
+        if (v == (num_vertices(g) - 1)) {
             return;
         }
 
-        if (g[v].sample != -1)
-        {
-            numPlacements[v] = 0;
-            return ;
+        // Remove added vertex if
+        //      vertex is root
+        //      vertex contains mutation
+        //      vertex is sample
+        if (source(*in_edges(v, g).first, g) == num_vertices(g) - 1 ||
+            this->mutationsOfNodes[v].size() > 0 ||
+            g[v].sample != -1) {
+            this->processedVertices.pop();
         }
-
-        auto it = out_edges(v,g).first;
-        numPlacements[v] = numPlacements[target(*it, g)] + numPlacements[target(*(it+1), g)];
-        if (g[target(*it, g)].sample == -1)
-        {
-            ++numPlacements[v];
-        }
-        if (g[target(*(it+1), g)].sample == -1)
-        {
-            ++numPlacements[v];
-        }
-        numPlacements.back() += numPlacements[v];
-        return ;
     }
 };
 
-unsigned getNumPlacements(Config<SampleTree> const & config)
+
+class my_label_writer {
+public:
+
+    my_label_writer(
+            boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>> const &simpleTree_,
+            std::vector<std::tuple<std::string, unsigned, char, char>> const &indexToPosition_,
+            std::vector<std::string> const &cellNames_,
+            std::vector<std::string> const &cellColours_,
+            std::vector<unsigned> const &cellClusters_) :
+            simpleTree(simpleTree_),
+            indexToPosition(indexToPosition_),
+            cellNames(cellNames_),
+            cellColours(cellColours_),
+            cellClusters(cellClusters_) {}
+
+    template<class VertexOrEdge>
+    void operator()(std::ostream &out, const VertexOrEdge &v) const {
+
+        if (simpleTree[v].sample == -1) {
+            out << "[style=filled, fillcolor=grey82, label=\"";
+        } else {
+            out << "[shape=" << (cellClusters[simpleTree[v].sample] == 1 ? "box" : "diamond")
+                << ",style=filled, fillcolor=" << cellColours[simpleTree[v].sample] << ",label=\""
+                << cellNames[simpleTree[v].sample] << "\\n";
+        }
+        for (unsigned i = 0; i < simpleTree[v].mutations.size(); ++i) {
+            out << std::get<0>(this->indexToPosition[simpleTree[v].mutations[i]]) << "_"
+                << std::to_string(std::get<1>(this->indexToPosition[simpleTree[v].mutations[i]])) << "\\n";
+        }
+        out << "\"]";
+    }
+
+private:
+    boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>> const &simpleTree;
+    std::vector<std::tuple<std::string, unsigned, char, char>> const &indexToPosition;
+    std::vector<std::string> const &cellNames;
+    std::vector<std::string> const &cellColours;
+    std::vector<unsigned> const &cellClusters;
+};
+
+//// this prints the graph as it is currently used
+//class my_label_writer_complete {
+//public:
+//
+//    my_label_writer_complete(
+//            boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const &sampleTree_)
+//            :
+//            sampleTree(sampleTree_) {}
+//
+//    template<class VertexOrEdge>
+//    void operator()(std::ostream &out, const VertexOrEdge &v) const {
+//
+//        if (sampleTree[v].sample == -1) {
+//            out << "[label=\"" << v;
+//        } else {
+//            out << "[shape=box,label=\"" << sampleTree[v].sample + boost::num_vertices(sampleTree) / 2 - 1;
+//        }
+//        out << "\"]";
+//    }
+//
+//private:
+//    boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const &sampleTree;
+//};
+//
+//void writeTree(Config<SampleTree> const & config)
+//{
+//    std::ofstream ofs(config.bestName + "/tree.gv");
+//    write_graphviz(ofs, config.getTree(), my_label_writer_complete(config.getTree()));
+//    ofs.close();
+//}
+
+// This function simplifies a tree bu removing nodes without mutations assigned
+boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>>
+simplifyTree(Config<SampleTree> & config)
+{
+    typedef boost::adjacency_list<boost::vecS, boost::vecS,
+            boost::bidirectionalS, Vertex<SimpleTree>> TGraph;
+    TGraph newTree;
+    std::vector<std::vector<unsigned> > mutationsOfNodes = getMutationsOfNode(config);
+    std::stack<unsigned> processedVertices;
+
+    SimplifyTreeDFSVisitor vis(newTree, mutationsOfNodes, processedVertices);
+    unsigned rootVertex = target(*out_edges(num_vertices(config.getTree()) - 1, config.getTree()).first, config.getTree());
+    depth_first_search(config.getTree(), visitor(vis).root_vertex(rootVertex));
+
+    return newTree;
+}
+
+//unsigned getNumPlacements(Config<SampleTree> const & config)
+//{
+//    static std::vector<unsigned> numPlacements; // static because the vector should be re-used
+//    numPlacements.resize(num_vertices(config.getTree()), 0);
+//    ComputeNumPlacementsDFSVisitor vis(config, numPlacements);
+//    depth_first_search(config.getTree(), visitor(vis).root_vertex(num_vertices(config.getTree()) - 1));
+//
+//    return numPlacements.back();
+//}
+
+/*
+std::vector<unsigned> getNumPlacements(Config<SampleTree> const & config)
 {
     static std::vector<unsigned> numPlacements; // static because the vector should be re-used
     numPlacements.resize(num_vertices(config.getTree()), 0);
     ComputeNumPlacementsDFSVisitor vis(config, numPlacements);
     depth_first_search(config.getTree(), visitor(vis).root_vertex(num_vertices(config.getTree()) - 1));
-   
-    return numPlacements.back();
+
+    return numPlacements;
 }
+*/
 
 /*
 template <typename TTreeType>
