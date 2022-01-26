@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -96,6 +96,7 @@ public:
                     this->config.getLogScores().wtScore(g[v].sample, gene),
                     this->config.getLogScores().homScore(g[v].sample, gene));
 
+
             // add hetero score to overall tree score
             scoreSum.hetScore() = addLogProb(scoreSum.hetScore(), attachmentScores[v].hetScore());
             return ;
@@ -114,7 +115,26 @@ public:
         {
             attachmentScores.computeLogLcaScoreInnerNode(g,v);
         }
-        scoreSum.addInRealSpace(attachmentScores[v]);
+        
+        AttachmentScore tmp = attachmentScores[v];
+        if (config.computeLossScore)
+        {
+            if (tmp.numAltRPoss() > 0){
+                tmp.lossAltRScore() -= std::log(tmp.numAltRPoss());
+            }
+            if (tmp.numInnerNodes() > 0){
+                tmp.lossWildScore() -= std::log(tmp.numInnerNodes());
+            }
+        }
+        if (config.computeParallelScore)
+        {
+            if (tmp.numLcaRPoss() > 0){
+                tmp.lcaRScore() -= std::log(tmp.numLcaRPoss());
+            }
+        }
+        
+        scoreSum.addInRealSpace(tmp);
+        
         return ;
     }
 };
@@ -130,6 +150,7 @@ void getAllAttachmentScores(typename Config<SampleTree>::TAttachmentScores & att
     unsigned rootVertex = target(*out_edges(num_vertices(config.getTree()) - 1, config.getTree()).first, config.getTree());
 
     depth_first_search(config.getTree(), visitor(vis).root_vertex(rootVertex));
+
 }
 
 // this function computes the maximum likelihood score of a tree
@@ -227,7 +248,7 @@ double getSumAttachmentScore(Config<TTreeType> & config,
     Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
     getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
 
-    scoreSum.computeFinalScore(config, scoreSum, false);
+    scoreSum.computeFinalScore(config, scoreSum, false, true);
 
     return scoreSum.finalScore();
 }
@@ -278,9 +299,16 @@ double scoreTree(Config<TTreeType> & config)
     {
 		result = sumScoreTree(config);
     }
-   
-    result -= config.lossScorePenalty * config.getNumMutations() * config.getParam(Config<TTreeType>::E_lambda);
-    result -= config.parallelScorePenalty * config.getNumMutations() * config.getParam(Config<TTreeType>::E_parallel);
+
+    if (config.computeLossScore == true)
+    {
+        result -= (config.lossScorePenalty / 2.0) * config.getNumMutations() * config.getParam(Config<TTreeType>::E_lambdaWildLoss);
+        result -= (config.lossScorePenalty / 2.0) * config.getNumMutations() * config.getParam(Config<TTreeType>::E_lambdaMutLoss);
+    }
+    if (config.computeParallelScore == true)
+    {
+        result -= config.parallelScorePenalty * config.getNumMutations() * config.getParam(Config<TTreeType>::E_parallel);
+    }
 
 	return result;
 }

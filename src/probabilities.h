@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -120,25 +120,27 @@ addLogProb(double x, double y) {
 inline
 double
 subLogProb(double x, double y) {
+
     if (y == -INFINITY) // it is important to first check this case
     {                   // because it avoids - -INFINITY in the next case
         return x;
     }
+    if (x == -INFINITY) 
+    {                  
+        return -INFINITY;
+    }
 
+    // x and y are basically the same -> retunr log(0) == -INF
     if (std::abs(x - y) <= 100 * std::numeric_limits<double>::epsilon()) {
         return -INFINITY;
     }
 
-    double maxScore;
-    double minScore;
-    if (x > y) {
-        maxScore = x;
-        minScore = y;
-    } else {
-        maxScore = y;
-        minScore = x;
+    if (y>x)
+    {
+        return -INFINITY;
     }
-    return log(1.0 - exp(minScore - maxScore)) + maxScore;
+
+    return log(1.0 - exp(y - x)) + x;
 }
 
 // Add two weighted values in real space by first exponentiating
@@ -266,6 +268,11 @@ inline
 void
 computeNoiseScore(Config<SampleTree> &config) {
 
+    if (config.noiseCounts.numPos == 0)
+    {
+        config.noiseScore = 0;
+    }
+
     long double mean = config.getParam(Config<SampleTree>::E_wildMean);
     long double overDis = config.getParam(Config<SampleTree>::E_wildOverDis);
     long double alpha = mean * overDis;
@@ -291,7 +298,8 @@ class PassScoreToChildrenBFSVisitor : public boost::default_bfs_visitor {
     Config<SampleTree>::TAttachmentScores &attachmentSumScores;
     Config<SampleTree>::TPassDownAttachmentScores &passDownAttachmentScores;
     Config<SampleTree>::TPassDownAttachmentScores &passDownAttachmentSumScores;
-    Config<SampleTree>::TAttachmentScores::TAttachmentScore &sumScore;
+    long double &sumParallel;
+    //Config<SampleTree>::TAttachmentScores::TAttachmentScore &sumScore;
 
 public:
 
@@ -300,14 +308,17 @@ public:
                                   Config<SampleTree>::TAttachmentScores &attachmentSumScores_,
                                   Config<SampleTree>::TPassDownAttachmentScores &passDownAttachmentScores_,
                                   Config<SampleTree>::TPassDownAttachmentScores &passDownAttachmentSumScores_,
-                                  Config<SampleTree>::TAttachmentScores::TAttachmentScore &sumScore_,
+                                  long double & sumParallel_,
+                                  //Config<SampleTree>::TAttachmentScores::TAttachmentScore &sumScore_,
                                   unsigned attachment_) :
             config(config_),
             attachmentScores(attachmentScores_),
             attachmentSumScores(attachmentSumScores_),
             passDownAttachmentScores(passDownAttachmentScores_),
             passDownAttachmentSumScores(passDownAttachmentSumScores_),
-            sumScore(sumScore_) {}
+            sumParallel(sumParallel_)
+            //sumScore(sumScore_) 
+            {}
 
     template<typename TVertex>
     void discover_vertex(TVertex v, typename Config<SampleTree>::TGraph const &g) const {
@@ -323,20 +334,28 @@ public:
         unsigned pN = source(*in_edges(v, g).first, g); // parent Node
 
         if (pN == num_vertices(config.getTree()) - 1) {
-            sumScore.addInRealSpace(attachmentScores[v]);
+            //sumScore.addInRealSpace(attachmentScores[v]);
             attachmentSumScores[v] = attachmentScores[v];
+            passDownAttachmentSumScores[v].numParentNodes() = 0;
+            if (attachmentScores[v].numAltRPoss() > 0){
+                attachmentSumScores[v].lossAltRScore() -= std::log(attachmentScores[v].numAltRPoss());
+            }
+            if (attachmentScores[v].numInnerNodes() > 0){
+                attachmentSumScores[v].lossWildScore() -= std::log(attachmentScores[v].numInnerNodes());
+            }
             return;
         }
 
         if (g[v].sample == -1) {
-            auto it = out_edges(v, g).first;
-            unsigned lN = target(*it, g);                   // left node id
-            unsigned rN = target(*(it + 1), g);             // right node id
             unsigned sN = getSibling(g, v);                  // sibling node id
 
+            passDownAttachmentSumScores[v].numParentNodes() += 1;
             passDownAttachmentScores.computeLogLossInCurrentInnerNode(g, attachmentScores, v);
 
-            sumScore.addInRealSpace(attachmentScores[v]);
+            passDownAttachmentSumScores[v].numSibInnerNodes() = passDownAttachmentSumScores[pN].numSibInnerNodes() + attachmentScores[v].numInnerNodes() + 1;
+            passDownAttachmentSumScores[v].numParentNodes() += 1;
+
+            //sumScore.addInRealSpace(attachmentScores[v]);
 
             attachmentSumScores[v].hetScore() =
                     addLogProb(attachmentScores[v].hetScore(),
@@ -347,12 +366,38 @@ public:
             attachmentSumScores[v].lossAltRScore() =
                     addLogProb(attachmentScores[v].lossAltRScore(),
                                attachmentSumScores[pN].lossAltRScore());
+            if (attachmentScores[v].numAltRPoss() > 0)
+            {
+                attachmentSumScores[v].lossAltRScore() =
+                        addLogProb(attachmentScores[v].lossAltRScore() - std::log(attachmentScores[v].numAltRPoss()),
+                                   attachmentSumScores[pN].lossAltRScore());
+            }
+            else
+            {
+                attachmentSumScores[v].lossAltRScore() =
+                        addLogProb(attachmentScores[v].lossAltRScore(),
+                                   attachmentSumScores[pN].lossAltRScore());
+
+            }
+            unsigned loc_num_parent_nodes = passDownAttachmentSumScores[v].numParentNodes();
+            if (loc_num_parent_nodes <= 2){
+                loc_num_parent_nodes = 2;
+            }
+
             passDownAttachmentSumScores[v].lossAltInCurrentNodeRScore() =
-                    addLogProb(passDownAttachmentScores[v].lossAltInCurrentNodeRScore(),
+                    addLogProb(passDownAttachmentScores[v].lossAltInCurrentNodeRScore() - std::log(loc_num_parent_nodes),
                                passDownAttachmentSumScores[pN].lossAltInCurrentNodeRScore());
-            attachmentSumScores[v].lossWildScore() =
-                    addLogProb(attachmentScores[v].lossWildScore(),
-                               attachmentSumScores[pN].lossWildScore());
+            if (attachmentScores[v].numInnerNodes() >  0){
+                attachmentSumScores[v].lossWildScore() =
+                        addLogProb(attachmentScores[v].lossWildScore() - std::log(attachmentScores[v].numInnerNodes()),
+                                   attachmentSumScores[pN].lossWildScore());
+            }
+            else
+            {
+                attachmentSumScores[v].lossWildScore() =
+                        addLogProb(attachmentScores[v].lossWildScore(),
+                                   attachmentSumScores[pN].lossWildScore());
+            }
 
             unsigned ppN = source(*in_edges(pN, g).first, g);
             passDownAttachmentSumScores[v].sibNodeScore() = attachmentScores[getSibling(g, v)].hetSumScore();
@@ -370,17 +415,22 @@ public:
                         addLogProb(attachmentScores[sN].hetScore(), attachmentScores[sN].childHetSumScore()));
             }
             if (ppN != num_vertices(config.getTree()) - 1) {
-                if (g[getSibling(g, (TVertex) pN)].sample == -1) {
+                int spn = getSibling(g, (TVertex) pN);
+                if (g[spn].sample == -1) {
                     passDownAttachmentScores[v].paralleleScore() = subLogProb(
                             passDownAttachmentScores[v].paralleleScore(),
-                            attachmentScores[v].hetScore() + attachmentScores[getSibling(g, (TVertex) pN)].hetScore());
+                            attachmentScores[v].hetScore() + attachmentScores[spn].hetScore());
                 }
             }
+            
+            long double loc_parallel = passDownAttachmentScores[v].paralleleScore();
             passDownAttachmentSumScores[v].paralleleScore() = addLogProb(
-                    passDownAttachmentScores[v].paralleleScore(),
+                    loc_parallel,
                     passDownAttachmentSumScores[pN].paralleleScore());
+            sumParallel = addLogProb(sumParallel, loc_parallel); 
+
+
         } else {
-            sumScore.hetScore() = addLogProb(sumScore.hetScore(), attachmentScores[v].hetScore());
 
             attachmentSumScores[v].hetScore() =
                     addLogProb(attachmentScores[v].hetScore(),
@@ -389,6 +439,7 @@ public:
             attachmentSumScores[v].lossAltRScore() = subLogProb(
                     attachmentSumScores[pN].lossAltRScore(),
                     passDownAttachmentSumScores[pN].lossAltInCurrentNodeRScore());
+            passDownAttachmentSumScores[v].lossAltInCurrentNodeRScore() = passDownAttachmentSumScores[pN].lossAltInCurrentNodeRScore();
             attachmentSumScores[v].lossWildScore() = attachmentSumScores[pN].lossWildScore();
             passDownAttachmentSumScores[v].paralleleScore() = passDownAttachmentSumScores[pN].paralleleScore();
         }

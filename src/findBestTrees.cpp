@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -97,6 +97,11 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
              "Set to 1 if zygosity should be learned. [0]")
             ("zyg", boost::program_options::value<double>(&std::get<0>(config.params[Config<TTreeType>::E_nu])),
              "Zygosity rate. [0]")
+            ("sa", boost::program_options::value<decltype(config.sampling)>(&config.sampling), "Sampling step. "
+             "If a value x different from 0 is specified, every x iteration, after the burn in phase, an index "
+             "will be writen to disk to provide a posterior sampling. [0]")
+            ("inc", boost::program_options::value<decltype(config.variantInclusionFileName)>(&config.variantInclusionFileName), 
+             "File name of inclusion list (VCF format) containing Variants (CHROM, POS, REF, ALT) that should be included.")
             ("ls", boost::program_options::value<decltype(config.sampleLoops)>(&config.sampleLoops),
              "Number of sample iterations. [100000]")
             ("pr", boost::program_options::value<decltype(config.priorMutationRate)>(&config.priorMutationRate),
@@ -198,6 +203,17 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
         setMoveProbs(config, config.paramsEstimateRate);
     }
 
+    if (config.lossScorePenalty == -1)
+    {
+        std::cout << "Not computing loss score!" << std::endl;
+        config.computeLossScore = false;
+    }
+    if (config.parallelScorePenalty == -1)
+    {
+        std::cout << "Not computing parallel score!" << std::endl;
+        config.computeParallelScore = false;
+    }
+
     config.bestName = config.outFilePrefix + "/best_index/";
     config.lastName = config.outFilePrefix + "/last_index/";
     config.samplingName = config.outFilePrefix + "/sample_index";
@@ -221,7 +237,7 @@ int main(int argc, char *argv[]) {
     TConfig config{};
 
     // read the command line arguments
-    std::cout << "SCIPhI v" << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << std::endl;
+    std::cout << "SCIPhIN v" << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << std::endl;
     std::cout << "Reading the config file: ... " << std::flush;
     readParameters(config, argc, argv);
     std::cout << "done!" << std::endl;
@@ -253,10 +269,12 @@ int main(int argc, char *argv[]) {
         }
         else
         {
+            std::cout << "Creating random tree since no tree was provided.";
             createInitialTree(config);
         }
 
         readNucInfo(config);
+        config.getTmpAttachmentScore().resize(2 * config.getNumSamples() - 1);
         std::cout << "done!" << std::endl;
     }
 
@@ -280,7 +298,7 @@ int main(int argc, char *argv[]) {
     //optimal tree
     typename TConfig::TGraph optimalTree;
     // optimal parameters
-    std::array<std::tuple<double, double>, 7> optimalParams;
+    std::array<std::tuple<double, double>, 9> optimalParams;
     // list where tree samples are stored, if sampling based on posterior distribution is needed
     std::vector<std::vector<unsigned>> sampleTrees;
 
@@ -315,4 +333,5 @@ int main(int argc, char *argv[]) {
                     config.cellNames,
                     config.cellColours,
                     config.cellClusters));
+    std::cout << "SCIPhIN complete" << std::endl;
 }

@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -50,8 +50,7 @@ double adjusteCoefficient(double coEff)
         }
         else if (coEff > 1.0)
         {
-            //coEff =  1.0 - std::abs(1 - coEff);
-            coEff = 2.0 - coEff;
+            coEff =  1.0 - std::abs(1 - coEff);
         }
         else
         {
@@ -82,7 +81,7 @@ changeParameters(Config<TTreeType> & config)
     config.setTmpLogScores(config.getLogScores());
 
     //choose which parameter to optimize
-    unsigned numParams = 4 + config.computeLossScore + config.learnZygocity + config.computeParallelScore;
+    unsigned numParams = 4 + 2 * config.computeLossScore + config.learnZygocity + config.computeParallelScore;
     unsigned paramIdx = rand() % numParams;
     if(paramIdx > 3) {
         if (paramIdx == 4 && !config.learnZygocity)
@@ -90,6 +89,10 @@ changeParameters(Config<TTreeType> & config)
             ++paramIdx;
         }
         if (paramIdx == 5 && !config.computeLossScore)
+        {
+            ++paramIdx;
+        }
+        if (paramIdx == 6 && !config.computeLossScore)
         {
             ++paramIdx;
         }
@@ -121,15 +124,20 @@ changeParameters(Config<TTreeType> & config)
     {
         newParamValue = adjusteCoefficient(newParamValue);
         double sumParams = config.getParam(Config<TTreeType>::ParamType::E_nu)
-                + config.getParam(Config<TTreeType>::ParamType::E_lambda)
+                + config.getParam(Config<TTreeType>::ParamType::E_lambdaWildLoss)
+                + config.getParam(Config<TTreeType>::ParamType::E_lambdaMutLoss)
                 + config.getParam(Config<TTreeType>::ParamType::E_parallel);
         if (sumParams > 1)
         {
-            for (unsigned i = 4; i < 7; ++i) {
+            for (unsigned i = 4; i < 8; ++i) {
                 config.setParam(typename Config<TTreeType>::ParamType(i),
                         config.getParam(typename Config<TTreeType>::ParamType(i)) / sumParams);
             }
         }
+    }
+    else if (param == Config<TTreeType>::ParamType::E_mu)
+    {
+        newParamValue = adjusteCoefficient(newParamValue);
     }
     else if (param == Config<TTreeType>::ParamType::E_mutationOverDis)
     {
@@ -192,7 +200,7 @@ manageBestTrees(Config<SampleTree> & config,
                      double & bestTreeLogScore,
                      double currTreeLogScore,
                      Config<SampleTree>::TGraph & bestTree,
-                     std::array<std::tuple<double, double>, 7> & bestParams)
+                     std::array<std::tuple<double, double>, 9> & bestParams)
 {
     if(currTreeLogScore > bestTreeLogScore)
     {
@@ -229,26 +237,31 @@ updateMutInSampleCounts(Config<SampleTree> & config)
     // for all mutations
     for (size_t attachment = 0; attachment < config.getNumAttachments(); ++attachment) {
         // get the attachment scores
+        scoreSum = AttachmentScore();
         getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
 
         // traverse the attachment scores to the leaves
-        scoreSum = AttachmentScore();
+        // scoreSum = AttachmentScore();
+        long double sumParallel = 0;
         PassScoreToChildrenBFSVisitor visBFS(config,
                                              attachmentScores,
                                              attachmentSumScores,
                                              passDownAttachmentScores,
                                              passDownAttachmentSumScores,
-                                             scoreSum,
+                                             sumParallel,
+                                             //scoreSum,
                                              attachment);
         breadth_first_search(config.getTree(), num_vertices(config.getTree()) - 1, visitor(visBFS));
+        sumParallel -= std::log(2);
 
-        static std::array<double, 5> res;
-        scoreSum.computeMutTypeContribution(config, scoreSum, res);
+        static std::array<double, 6> res;
+        res = scoreSum.computeMutTypeContribution(config, scoreSum, true);
 
-        double logPHet = res[0] - res[4];
-        double logPHom = res[1] - res[4];
-        double logPLoss = res[2] - res[4];
-        double logPPara = res[3] - res[4];
+        double logPHet = res[0] - res[5];
+        double logPHom = res[1] - res[5];
+        double logPLossWild = res[2] - res[5];
+        double logPLossMut = res[3] - res[5];
+        double logPPara = res[4] - res[5];
 
         // for all attachment positions
         for (unsigned i = 0; i < attachmentScores.size(); ++i)
@@ -260,7 +273,7 @@ updateMutInSampleCounts(Config<SampleTree> & config)
                 attachmentSumScores[i].homScore() -= scoreSum.homScore();
                 attachmentSumScores[i].lossWildScore() -= scoreSum.lossWildScore();
                 attachmentSumScores[i].lossAltRScore() -= scoreSum.lossAltRScore();
-                passDownAttachmentSumScores[i].paralleleScore() -= scoreSum.lcaRScore();
+                passDownAttachmentSumScores[i].paralleleScore() -= sumParallel;
 
                 // compute final score
                 attachmentSumScores[i].hetScore() = attachmentSumScores[i].hetScore() + logPHet;
@@ -273,12 +286,14 @@ updateMutInSampleCounts(Config<SampleTree> & config)
                 }
                 if (config.computeLossScore)
                 {
-                    // TODO: overwriting lossWildScore in this way is error prone
-                    attachmentSumScores[i].lossWildScore() =
-                            addLogProbWeight(attachmentSumScores[i].lossWildScore(),
-                                    attachmentSumScores[i].lossAltRScore(), 0.5) + logPLoss;
+                    attachmentSumScores[i].lossWildScore() = attachmentSumScores[i].lossWildScore() + logPLossWild;
                     attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(),
                             attachmentSumScores[i].lossWildScore());
+
+                    attachmentSumScores[i].lossAltRScore() = attachmentSumScores[i].lossAltRScore() + logPLossMut;
+                    attachmentSumScores[i].finalScore() = addLogProb(attachmentSumScores[i].finalScore(),
+                            attachmentSumScores[i].lossAltRScore());
+
                 }
                 if (config.computeParallelScore)
                 {
@@ -298,7 +313,7 @@ updateMutInSampleCounts(Config<SampleTree> & config)
 template<typename TTreeType>
 double
 runMCMC(typename Config<TTreeType>::TGraph &bestTree,
-        std::array<std::tuple<double, double>, 7> &bestParams,
+        std::array<std::tuple<double, double>, 9> &bestParams,
         Config<TTreeType> &config,
         std::vector<std::vector<unsigned>> &sampleTrees) {
 

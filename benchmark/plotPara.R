@@ -4,12 +4,12 @@
 #
 # This file is part of SCIPhI.
 #
-# SCIPhI is free software: you can redistribute it and/or modify
+# SCIPhIN is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# SCIPhI is distributed in the hope that it will be useful,
+# SCIPhIN is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
@@ -24,8 +24,8 @@ args <- commandArgs(TRUE)
 
 inputName <- args[1]
 df <- read.table(inputName, header = TRUE)
-df$vio <- as.factor(df$vio)
-df$tool <- factor(df$tool, levels = c("Monovar", "SCIPhI"))
+df$para <- as.factor(df$para)
+df$tool <- factor(df$tool, levels = c("Monovar", "SCIPhI", "SCIPhIN"))
 
 
 ggplot(data = df, aes(x = para, y = recall, fill = tool)) +
@@ -40,8 +40,8 @@ ggplot(data = df, aes(x = para, y = recall, fill = tool)) +
         text = element_text(size=25),
         legend.text.align = 0,
         legend.key.size = unit(3., 'lines')) +
-  scale_color_manual(values = c("firebrick3", "steelblue")) +
-  scale_fill_manual(values = c("firebrick3", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi))))
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
 ggsave(paste(gsub(".txt","",inputName), "_rec.pdf", sep=""))
   
 ggplot(data = df, aes(x = para, y = precision, fill = tool)) +
@@ -55,8 +55,8 @@ ggplot(data = df, aes(x = para, y = precision, fill = tool)) +
         text = element_text(size=25),
         legend.text.align = 0,
         legend.key.size = unit(3., 'lines')) +
-  scale_color_manual(values = c("firebrick3", "steelblue")) +
-  scale_fill_manual(values = c("firebrick3", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi))))
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
 ggsave(paste(gsub(".txt","",inputName), "_pre.pdf", sep=""))
 
 ggplot(data = df, aes(x = para, y = f1, fill = tool)) +
@@ -70,7 +70,7 @@ ggplot(data = df, aes(x = para, y = f1, fill = tool)) +
         text = element_text(size=25),
         legend.text.align = 0,
         legend.key.size = unit(3., 'lines')) +
-  scale_color_manual(values = c("firebrick3", "steelblue")) +
-  scale_fill_manual(values = c("firebrick3", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi))))
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
 
 ggsave(paste(gsub(".txt","",inputName), "_f1.pdf", sep=""))

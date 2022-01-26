@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -272,7 +272,6 @@ readExclusionList(std::set<std::tuple<std::string, std::string>> &exMap,
     }
 }
 
-<<<<<<< HEAD
 std::set<std::tuple<std::string, std::string, std::string, std::string>>
 readInclusionVCF(std::string const & fileName)
 {
@@ -306,7 +305,6 @@ readCellNames(Config<TTreeType> &config) {
     std::vector<std::string> splitVec;
     std::vector<std::string> splitVecEntry;
 
-    unsigned counter = 0;
     std::string currLine;
 
     while (getline(inputStream, currLine)) {
@@ -439,7 +437,6 @@ void estimateSeqErrorRate(Config<TTreeType> & config,
     std::stringstream & inFileHeadBuff)
 {
     //estimate the error rate
-    std::ifstream inputStream(config.inFileName);
     if (inputStream.fail()) {
         std::cerr << "The pileup file provided does not exist or you lack permission to access it." << std::endl;
         std::exit(1);
@@ -799,6 +796,7 @@ bool readMpileupFile(Config<TTreeType> &config) {
     std::vector<double> cellsMutated(numCells);
     std::vector<double> cellsMutatedNormal(normalCellPos.size());
 
+
     std::stringstream inFileHeadBuff;
     std::ifstream inputStream(config.inFileName, std::ifstream::in);
     if (!inputStream){
@@ -811,11 +809,6 @@ bool readMpileupFile(Config<TTreeType> &config) {
         estimateSeqErrorRate(config, exMap, errExMap, tumorCellPos, normalCellPos, inputStream, inFileHeadBuff);
     }
 
-    std::ifstream inputStream(config.inFileName, std::ifstream::in);
-    if (inputStream.fail()) {
-        std::cerr << "The pileup file provided does not exist or you lack permission to access it." << std::endl;
-        std::exit(1);
-    }
     std::string currentChrom = "";
     std::string currLine;
     std::vector<std::string> splitVec;
@@ -1063,7 +1056,7 @@ void readGraph(Config<TTreeType> &config) {
         }
         boost::algorithm::split_regex(splitVec, line, boost::regex("[\[\"]"));
         if (splitVec.size() == 4) {
-            if (std::stoi(splitVec[0]) != sampleIds.size()) {
+            if (std::stoi(splitVec[0]) != static_cast<int>(sampleIds.size())) {
                 std::cout << "Problem reading the tree." << std::endl;
                 return;
             }
@@ -1072,6 +1065,10 @@ void readGraph(Config<TTreeType> &config) {
     }
 
     unsigned numVertices = num_vertices(config.getTree());
+
+    for (unsigned i = 0; i < numVertices / 2 - 1; ++i) {
+        config.getTree()[i].sample = -1;
+    }
     for (unsigned i = numVertices / 2 - 1; i < numVertices - 1; ++i) {
         config.getTree()[i].sample = sampleIds[i] - (numVertices / 2 - 1);
     }
@@ -1130,10 +1127,17 @@ void readNucInfo(Config<TTreeType> &config) {
 
         std::getline(inFile, line);
         boost::split(splitVec, line, boost::is_any_of("\t"));
-        config.setParam(Config<SampleTree>::E_lambda, std::stod(splitVec[0]));
-        config.setSDParam(Config<SampleTree>::E_lambda, std::stod(splitVec[1]));
-        config.setSDCountParam(Config<SampleTree>::E_lambda, std::stoi(splitVec[2]));
-        config.setSDTrialsParam(Config<SampleTree>::E_lambda, std::stoi(splitVec[3]));
+        config.setParam(Config<SampleTree>::E_lambdaWildLoss, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_lambdaWildLoss, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_lambdaWildLoss, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_lambdaWildLoss, std::stoi(splitVec[3]));
+
+        std::getline(inFile, line);
+        boost::split(splitVec, line, boost::is_any_of("\t"));
+        config.setParam(Config<SampleTree>::E_lambdaMutLoss, std::stod(splitVec[0]));
+        config.setSDParam(Config<SampleTree>::E_lambdaMutLoss, std::stod(splitVec[1]));
+        config.setSDCountParam(Config<SampleTree>::E_lambdaMutLoss, std::stoi(splitVec[2]));
+        config.setSDTrialsParam(Config<SampleTree>::E_lambdaMutLoss, std::stoi(splitVec[3]));
 
         std::getline(inFile, line);
         boost::split(splitVec, line, boost::is_any_of("\t"));

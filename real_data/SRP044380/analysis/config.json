@@ -69,7 +69,7 @@
             }
         },
         "GATK":{
-            "call": "java -jar path/to/GenomeAnalysisTK.jar",
+            "call": "java -jar GenomeAnalysisTK.jar",
             "realign" : {
                 "targetCreator":{
                     "params": "",
@@ -107,8 +107,8 @@
             "params": "-p "
         },
         "monovar": {
-            "activate" : "",
-            "call" : "path/to/monovar.py",
+            "activate" : "source activate.sh",
+            "call" : "monovar.py",
             "params" : "-p 0.002 -a 0.2 -t 0.05 -m 2",
             "scratch": "10000",
             "mem": "10000",
@@ -116,28 +116,28 @@
             "threads": 1
         },
         "sciphi": {
-            "call" : "path/to/git/SCIPhI_nm/build/sciphi",
+            "call" : "sciphin/sciphin",
             "exRegions" : "panel_to_exclude.vcf",
             "params" : "-t s -r 1 -l 1000000 -g 1 -e 0.2",
             "scratch": "4000",
             "mem": "4000",
-            "time": "1000",
+            "time": "8200",
             "threads": 1
         },
         "sciphiToHeatMap": {
-            "call1" : "path/to/git/SCIPhI_nm/build/convertTree2Map",
-            "call2" : "Rscript path/to/git/SCIPhI_nm/benchmark/createSCIPhITreeHeatMap.R"
+            "call1" : "sciphin/convertTree2Map",
+            "call2" : "Rscript createSCIPhITreeHeatMap.R"
         },
         "monovarToHeatMap": {
-            "call1" : "python3 path/to/git/SCIPhI_nm/benchmark/monovarToMap.py",
-            "call2" : "Rscript path/to/git/SCIPhI_nm/benchmark/createSCIPhITreeHeatMap.R"
+            "call1" : "python3 sciphin/benchmark/monovarToMap.py",
+            "call2" : "Rscript sciphin/benchmark/createSCIPhITreeHeatMap.R"
         },
         "sciphiOverviewGraph": {
-            "call1" : "python3 path/to/git/SCIPhI_nm/benchmark/createOverviewGraph.py",
+            "call1" : "python3 sciphin/benchmark/createOverviewGraph2.py",
             "call2" : "dot"
         },
         "monovarCluster": {
-            "call" : "Rscript path/to/git/SCIPhI_nm/benchmark/createMonovarCluster.r"
+            "call" : "Rscript sciphin/benchmark/createMonovarCluster_withDen.r"
         }
     }
 }

@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -42,7 +42,7 @@
 #include "noise_counts.h"
 #include "logScores.h"
 
-// SCIPhI is based on the SampleTree, which is a binary cell lineage tree that stores the cells as leafs and where the
+// SCIPhIN is based on the SampleTree, which is a binary cell lineage tree that stores the cells as leafs and where the
 // mutations are attached to the nodes.
 struct SampleTree {
 };
@@ -77,21 +77,23 @@ struct Vertex<SimpleTree> {
 
 // This class is used to get statistics on the parameter learned
 struct ParamsCounter {
-    std::vector<double> mu;         // drop out rate
-    std::vector<double> nu;         // zygousity rate
-    std::vector<double> lambda;     // fraction of mutation losses
-    std::vector<double> parallel;   // fraction of parallel mutations
-    std::vector<double> wildAlpha;  // beta-binomial alpha parameter of the wild type (sequencing errors)
-    std::vector<double> wildBeta;   // beta-binomial beta parameter of the wild type (sequencing errors)
-    std::vector<double> mutAlpha;   // beta-binomial alpha parameter of the mutation model
-    std::vector<double> mutBeta;    // beta-binomial alpha parameter of the mutation model
+    std::vector<double> mu;                 // drop out rate
+    std::vector<double> nu;                 // zygousity rate
+    std::vector<double> lambdaWildLoss;     // fraction of mutation losses
+    std::vector<double> lambdaMutLoss;      // fraction of mutation losses
+    std::vector<double> parallel;           // fraction of parallel mutations
+    std::vector<double> wildAlpha;          // beta-binomial alpha parameter of the wild type (sequencing errors)
+    std::vector<double> wildBeta;           // beta-binomial beta parameter of the wild type (sequencing errors)
+    std::vector<double> mutAlpha;           // beta-binomial alpha parameter of the mutation model
+    std::vector<double> mutBeta;            // beta-binomial alpha parameter of the mutation model
 
     ParamsCounter() {};
 
     unsigned resize(unsigned newSize) {
         mu.resize(newSize, 0);
         nu.resize(newSize, 0);
-        lambda.resize(newSize, 0);
+        lambdaWildLoss.resize(newSize, 0);
+        lambdaMutLoss.resize(newSize, 0);
         parallel.resize(newSize, 0);
         wildAlpha.resize(newSize, 0);
         wildBeta.resize(newSize, 0);
@@ -119,7 +121,7 @@ public:
     typedef PassDownAttachmentScores TPassDownAttachmentScores;
     typedef std::vector<std::vector<std::tuple<unsigned, unsigned> > > TData;
     typedef std::tuple<double, double> TParamsTuple;
-    typedef std::array<TParamsTuple, 7> TParams;
+    typedef std::array<TParamsTuple, 9> TParams;
     typedef std::tuple<double, unsigned, unsigned> TLearningParamsTuple;
     typedef std::vector<TLearningParamsTuple> TLearningParams;
     typedef boost::dynamic_bitset<> TBitSet;
@@ -131,9 +133,10 @@ public:
         E_wildMean = 2,
         E_mu = 3,
         E_nu = 4,
-        E_lambda = 5,
-        E_parallel = 6,
-        E_mutationMean = 7
+        E_lambdaWildLoss = 5,
+        E_lambdaMutLoss = 6,
+        E_parallel = 7,
+        E_mutationMean = 8
     };
 
     // Many small helper functions, mostly getter and setter
@@ -314,6 +317,9 @@ public:
     // List of positions to be excluded from the error learning, e.g., likely mutated positions in a panel data set
     std::string mutationExclusionFileName;
 
+    // List of positions to be included
+    std::string variantInclusionFileName;
+
     // The mpileup name
     std::string inFileName;
 
@@ -325,6 +331,12 @@ public:
 
     // Name of the best index
     std::string bestName;
+    
+    // Name of the last index
+    std::string lastName;
+
+    // Name of the last index
+    std::string samplingName;
 
     // Cell names
     std::vector<std::string> cellNames;
@@ -410,7 +422,8 @@ public:
 
     // Indicator to decide whether the normal cells should be included in the tree structur learning
     bool useNormalCellsInTree;
-    //double mu;
+    
+    unsigned sampling;
 
 
     Config() :
@@ -424,6 +437,7 @@ public:
             sub(0),
             learningParams{{TLearningParamsTuple{5.0, 0, 0},
                                    TLearningParamsTuple{0.1, 0, 0},
+                                   TLearningParamsTuple{0.01, 0, 0},
                                    TLearningParamsTuple{0.01, 0, 0},
                                    TLearningParamsTuple{0.01, 0, 0},
                                    TLearningParamsTuple{0.01, 0, 0},
@@ -493,7 +507,8 @@ Config<TTreeType>::updateParamsCounter() {
                                           this->getParam(Config::E_mutationOverDis));
     this->paramsCounter.mu.push_back(this->getParam(Config::E_mu));
     this->paramsCounter.nu.push_back(this->getParam(Config::E_nu));
-    this->paramsCounter.lambda.push_back(this->getParam(Config::E_lambda));
+    this->paramsCounter.lambdaWildLoss.push_back(this->getParam(Config::E_lambdaWildLoss));
+    this->paramsCounter.lambdaMutLoss.push_back(this->getParam(Config::E_lambdaMutLoss));
     this->paramsCounter.parallel.push_back(this->getParam(Config::E_parallel));
 }
 
@@ -708,8 +723,12 @@ Config<TTreeType>::resetParameters() {
             this->setParam(E_nu, this->getTmpParam(E_nu));
             break;
         }
-        case (E_lambda) : {
-            this->setParam(E_lambda, this->getTmpParam(E_lambda));
+        case (E_lambdaWildLoss) : {
+            this->setParam(E_lambdaWildLoss, this->getTmpParam(E_lambdaWildLoss));
+            break;
+        }
+        case (E_lambdaMutLoss) : {
+            this->setParam(E_lambdaMutLoss, this->getTmpParam(E_lambdaMutLoss));
             break;
         }
         case (E_parallel) : {
@@ -814,9 +833,12 @@ Config<TTreeType>::printParameters() {
     std::cout << "zyg: " << this->getParam(Config::E_nu) << " SD: " << this->getSDParam(Config::E_nu) << " count: "
               << this->getSDCountParam(Config::E_nu) << " trails: " << this->getSDTrialsParam(Config::E_nu)
               << std::endl;
-    std::cout << "loss: " << this->getParam(Config::E_lambda) << " SD: " << this->getSDParam(Config::E_lambda)
-              << " count: " << this->getSDCountParam(Config::E_lambda) << " trails: "
-              << this->getSDTrialsParam(Config::E_lambda) << std::endl;
+    std::cout << "lossWild: " << this->getParam(Config::E_lambdaWildLoss) << " SD: " << this->getSDParam(Config::E_lambdaWildLoss)
+              << " count: " << this->getSDCountParam(Config::E_lambdaWildLoss) << " trails: "
+              << this->getSDTrialsParam(Config::E_lambdaWildLoss) << std::endl;
+    std::cout << "lossMut: " << this->getParam(Config::E_lambdaMutLoss) << " SD: " << this->getSDParam(Config::E_lambdaMutLoss)
+              << " count: " << this->getSDCountParam(Config::E_lambdaMutLoss) << " trails: "
+              << this->getSDTrialsParam(Config::E_lambdaMutLoss) << std::endl;
     std::cout << "para: " << this->getParam(Config::E_parallel) << " SD: " << this->getSDParam(Config::E_parallel)
               << " count: " << this->getSDCountParam(Config::E_parallel) << " trails: "
               << this->getSDTrialsParam(Config::E_parallel) << std::endl;
@@ -866,10 +888,38 @@ writeParameters(Config<TTreeType> &config, std::string const &fileName) {
     outFile << "mu:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.nu);
     outFile << "nu:\t" << stats[0] << "\t" << stats[1] << "\t" << stats[2] << std::endl;
-    stats = getStats(config.paramsCounter.lambda);
-    outFile << "lambda:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    stats = getStats(config.paramsCounter.lambdaWildLoss);
+    outFile << "lambdaWildLoss:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
+    stats = getStats(config.paramsCounter.lambdaMutLoss);
+    outFile << "lambdaMutLoss:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
     stats = getStats(config.paramsCounter.parallel);
     outFile << "parallel:\t" << stats[0]<< "\t" << stats[1] << "\t" << stats[2] << std::endl;
 }
+
+// this prints the graph as it is currently used
+class my_label_writer_complete {
+    public:
+
+    my_label_writer_complete(boost::adjacency_list<boost::vecS,boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const & sampleTree_) :
+        sampleTree(sampleTree_)
+    {}
+
+    template <class VertexOrEdge>
+    void operator()(std::ostream& out, const VertexOrEdge& v) const {
+
+        if (sampleTree[v].sample == -1)
+        {
+            out << "[label=\"" << v;
+        }
+        else
+        {
+            out << "[shape=box,label=\"" << sampleTree[v].sample + boost::num_vertices(sampleTree) / 2 - 1;
+        }
+        out << "\"]";
+    }
+
+    private:
+    boost::adjacency_list<boost::vecS,boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const & sampleTree;
+};
 
 #endif

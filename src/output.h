@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -31,9 +31,10 @@
 #include <ctime>
 #include <math.h>
 
-#include "trees.h"
+//#include "trees.h"
 
 // Some forward declarations of functions required below
+
 void writeToFile(std::string content, std::string fileName);
 
 std::string getGraphVizFileContentNumbers(int *parents, int n);
@@ -68,8 +69,8 @@ printMutationProbability(Config<SampleTree> const &config,
         for (unsigned int i = 0; i < config.getNumSamples(); ++i) {
             outFile << config.mutInSampleCounter[i][j].hetScore() << "|" <<
                     config.mutInSampleCounter[i][j].homScore() << "|" <<
-                    config.mutInSampleCounter[i][j].lossWildScore() << "|"
-                    << //TODO: here lossWildScore is a mix of lossWildScore and lossAltRScore
+                    config.mutInSampleCounter[i][j].lossWildScore() << "|" <<
+                    config.mutInSampleCounter[i][j].lossAltRScore() << "|" << 
                     config.mutInSampleCounter[i][j].lcaRScore() << "|" <<
                     config.mutInSampleCounter[i][j].finalScore() << "\t";
         }
@@ -85,11 +86,8 @@ writeVCFHeader(Config<SampleTree> const &config,
     outFile << "##fileformat=VCFv4.1\n";
 
     // get current date
-    auto t = std::time(nullptr);
-    auto tm = *std::localtime(&t);
-    //outFile << "##fileDate=" << std::put_time(&tm, "%d-%m-%Y") <<"\n";
     
-    outFile << "##source=SCIPhI " << "SCIPhI v" << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << "\n";
+    outFile << "##source=SCIPhIN " << "SCIPhIN v" << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << "\n";
     outFile << "##FILTER=<ID=LowQual,Description=\"Low quality\">\n";
     outFile
             << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Approximate read depth; some reads may have been filtered\">\n";
@@ -213,7 +211,6 @@ writeVCF(Config<SampleTree> const &config,
     }
 }
 
-<<<<<<< HEAD
 void writeTree(Config<SampleTree> const & config, std::string const & dir)
 {
     std::ofstream ofs(dir + "/tree.gv");
@@ -223,21 +220,11 @@ void writeTree(Config<SampleTree> const & config, std::string const & dir)
 
 void writeNucInfo(Config<SampleTree> const & config, std::string const & dir)
 {
-    string makeDir = "mkdir -p " + dir;
+    std::string makeDir = "mkdir -p " + dir;
     std::system(makeDir.c_str());
     std::ofstream outFile;
     outFile.open(dir + "/nuc.tsv");
     
-=======
-// Write all necessary information (except for the tree structure) that is needed to be able to read an index from
-// disk and continue from the current state
-void writeNucInfo(Config<SampleTree> const &config) {
-    std::string makeDir = "mkdir -p " + config.bestName;
-    std::system(makeDir.c_str());
-    std::ofstream outFile;
-    outFile.open(config.bestName + "/nuc.tsv");
-
->>>>>>> [DOC] Added documentation.
     outFile << "=numSamples=" << "\n";
     outFile << config.getNumSamples() << "\n";
 
@@ -260,14 +247,16 @@ void writeNucInfo(Config<SampleTree> const &config) {
     outFile << config.getParam(Config<SampleTree>::E_nu) << "\t" << config.getSDParam(Config<SampleTree>::E_nu) << "\t"
             << config.getSDCountParam(Config<SampleTree>::E_nu) << "\t"
             << config.getSDTrialsParam(Config<SampleTree>::E_nu) << "\n";
-    outFile << config.getParam(Config<SampleTree>::E_lambda) << "\t" << config.getSDParam(Config<SampleTree>::E_lambda)
-            << "\t" << config.getSDCountParam(Config<SampleTree>::E_lambda) << "\t"
-            << config.getSDTrialsParam(Config<SampleTree>::E_lambda) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_lambdaWildLoss) << "\t" << config.getSDParam(Config<SampleTree>::E_lambdaWildLoss)
+            << "\t" << config.getSDCountParam(Config<SampleTree>::E_lambdaWildLoss) << "\t"
+            << config.getSDTrialsParam(Config<SampleTree>::E_lambdaWildLoss) << "\n";
+    outFile << config.getParam(Config<SampleTree>::E_lambdaMutLoss) << "\t" << config.getSDParam(Config<SampleTree>::E_lambdaMutLoss)
+            << "\t" << config.getSDCountParam(Config<SampleTree>::E_lambdaMutLoss) << "\t"
+            << config.getSDTrialsParam(Config<SampleTree>::E_lambdaMutLoss) << "\n";
     outFile << config.getParam(Config<SampleTree>::E_parallel) << "\t"
             << config.getSDParam(Config<SampleTree>::E_parallel) << "\t"
             << config.getSDCountParam(Config<SampleTree>::E_parallel) << "\t"
             << config.getSDTrialsParam(Config<SampleTree>::E_parallel) << "\n";
-
 
     outFile << "=mutations=" << "\n";
     for (unsigned i = 0; i < config.indexToPosition.size(); ++i) {
@@ -315,7 +304,6 @@ void writeNucInfo(Config<SampleTree> const &config) {
     outFile.close();
 }
 
-<<<<<<< HEAD
 void writeIndex(Config<SampleTree> const & config, std::string const & dir)
 {
     writeNucInfo(config, dir);
@@ -331,18 +319,6 @@ void writeBestIndex(Config<SampleTree> const & config)
 void writeFinalIndex(Config<SampleTree> & config)
 {
     writeIndex(config, config.lastName);
-=======
-void writeIndex(Config<SampleTree> const &config) {
-    if (config.bestName != "") {
-        writeNucInfo(config);
-        writeTree(config);
-    }
-}
-
-void writeFinalIndex(Config<SampleTree> &config) {
-    config.bestName = config.saveName;
-    writeIndex(config);
->>>>>>> [DOC] Added documentation.
 }
 
 // Write the mutation to node assignment for the current tree to disk

@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -349,8 +349,90 @@ bool lossInSameLineage(unsigned firstPlace,
     return false;
 }
 
-unsigned getRandomNodeId(std::vector<unsigned> const & treeStructure, Options const & options)
+unsigned getPossibleLossPlaces(std::vector<unsigned> const & treeStructure, unsigned pos, bool mutLos)
 {
+    std::vector<bool> isBelow;
+    isBelow.resize(treeStructure.size()/2, 0);
+
+    for (unsigned i = 0; i < isBelow.size(); ++i){
+        bool below = false;
+        unsigned id = i;
+        while (treeStructure[id] != -1)
+        {
+            //std::cout << "id: " << id <<  " " << pos << std::endl;
+            if (treeStructure[id] == pos)
+            {
+                below = true;
+                break;
+            }
+            id = treeStructure[id];
+        }
+        if (below)
+        {
+            isBelow[i] = 1;
+        }
+    }
+
+    //for (int j = 0; j < isBelow.size(); ++j){
+    //    std::cout<< j << ": is " << isBelow[j] << std::endl;
+   // }
+
+    int possiblePlaces = 0;
+    for (unsigned i = 0; i < isBelow.size(); ++i){
+        if (isBelow[i])
+        {
+            if (mutLos)
+            {
+                if (treeStructure[i] != pos)
+                {
+                    ++possiblePlaces;
+                }
+            }
+            else
+            {
+                ++possiblePlaces;
+            }
+        }
+    }
+
+    //std::cout << "pos: " << possiblePlaces << std::endl;
+
+    return possiblePlaces;
+}
+
+unsigned getRandomNodeId(std::vector<unsigned> const & treeStructure, Options const & options, bool simLoss = false, bool mutLoss = true)
+{
+    //if (simLoss)
+    //{
+    //    std::vector<int> numBelow;
+    //    numBelow.resize(treeStructure.size()/2, 0);
+    //    int sumBelow = 0;
+    //    for (unsigned i = 0; i < numBelow.size(); ++i)
+    //    {
+    //        numBelow[i] = getPossibleLossPlaces(treeStructure, i, mutLoss);
+    //        sumBelow += numBelow[i];
+    //    }
+    //    int id = rand() % sumBelow;
+    //    unsigned localSum = 0;
+    //    int i = 0;
+
+
+    //    //for (int j = 0; j < numBelow.size(); ++j){
+    //    //    std::cout<< j << ": " << numBelow[j] << std::endl;
+    //   // }
+
+    //    for (; i < numBelow.size(); ++i)
+    //    {
+    //        localSum += numBelow[i];
+    //        if (localSum >= id)
+    //        {
+    //            break;
+    //        }
+    //    }
+    //    return i;
+    //    
+    //}
+
     if (options.assignMutationsToLeafs)
     {
         return rand() % (treeStructure.size());
@@ -390,6 +472,7 @@ std::vector<std::vector<int>> assignMutationToNodesSampleTree(std::vector<unsign
         else if (options.numRecMut + options.numLossMut > i)
         {
             bool isRefLost = rand() % 2;
+            unsigned nodeId = getRandomNodeId(treeStructure, options, true);
             unsigned nodeIdTwo = getRandomNodeId(treeStructure, options);
             while (!lossInSameLineage(nodeId, nodeIdTwo, isRefLost, treeStructure))
             {

@@ -10,7 +10,7 @@ if (BUILD_DIAGNOSTICS)
 	set(CMAKE_CXX_STANDARD 14)
 
 	# Load the SeqAn module and fail if not found.
-	find_package (SeqAn REQUIRED)
+    find_package (SeqAn REQUIRED)
 else()
 	set(CMAKE_CXX_STANDARD 11)
 endif()
@@ -56,9 +56,12 @@ add_definitions (${SEQAN_DEFINITIONS})
 # Add CXX flags found by find_package (SeqAn).
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SEQAN_CXX_FLAGS}")
 
+#set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+#set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG}")
+
 # Add executable and link against SeqAn dependencies.
-add_executable(sciphi src/findBestTrees.cpp)
-target_link_libraries (sciphi dlib::dlib ${Boost_LIBRARIES} ${SCIPHI_LIBRT})
+add_executable(sciphin src/findBestTrees.cpp)
+target_link_libraries (sciphin dlib::dlib ${Boost_LIBRARIES} ${SCIPHI_LIBRT})
 
 if (BUILD_DIAGNOSTICS)
 	add_executable(convertTree2Map src/convertTreeIntoClusterMap.cpp)

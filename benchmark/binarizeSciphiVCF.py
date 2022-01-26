@@ -4,12 +4,12 @@
 #
 # This file is part of SCIPhI.
 #
-# SCIPhI is free software: you can redistribute it and/or modify
+# SCIPhIN is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# SCIPhI is distributed in the hope that it will be useful,
+# SCIPhIN is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
@@ -45,6 +45,8 @@ for line in infile:
         outfileNoNAs.write(splitLine[0] + "\t" + splitLine[1] + "\t")
         for value in splitLine[9:numFields]:
             gt = value.split(":")[0]
+            print(splitLine)
+            print(value)
             cov = value.split(":")[2]
             # normal distance
             if cov == '0':

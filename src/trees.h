@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -563,36 +563,36 @@ private:
     std::vector<unsigned> const &cellClusters;
 };
 
-// this prints the graph as it is currently used
-class my_label_writer_complete {
-public:
-
-    my_label_writer_complete(
-            boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const &sampleTree_)
-            :
-            sampleTree(sampleTree_) {}
-
-    template<class VertexOrEdge>
-    void operator()(std::ostream &out, const VertexOrEdge &v) const {
-
-        if (sampleTree[v].sample == -1) {
-            out << "[label=\"" << v;
-        } else {
-            out << "[shape=box,label=\"" << sampleTree[v].sample + boost::num_vertices(sampleTree) / 2 - 1;
-        }
-        out << "\"]";
-    }
-
-private:
-    boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const &sampleTree;
-};
-
-void writeTree(Config<SampleTree> const & config)
-{
-    std::ofstream ofs(config.bestName + "/tree.gv");
-    write_graphviz(ofs, config.getTree(), my_label_writer_complete(config.getTree()));
-    ofs.close();
-}
+//// this prints the graph as it is currently used
+//class my_label_writer_complete {
+//public:
+//
+//    my_label_writer_complete(
+//            boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const &sampleTree_)
+//            :
+//            sampleTree(sampleTree_) {}
+//
+//    template<class VertexOrEdge>
+//    void operator()(std::ostream &out, const VertexOrEdge &v) const {
+//
+//        if (sampleTree[v].sample == -1) {
+//            out << "[label=\"" << v;
+//        } else {
+//            out << "[shape=box,label=\"" << sampleTree[v].sample + boost::num_vertices(sampleTree) / 2 - 1;
+//        }
+//        out << "\"]";
+//    }
+//
+//private:
+//    boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SampleTree>> const &sampleTree;
+//};
+//
+//void writeTree(Config<SampleTree> const & config)
+//{
+//    std::ofstream ofs(config.bestName + "/tree.gv");
+//    write_graphviz(ofs, config.getTree(), my_label_writer_complete(config.getTree()));
+//    ofs.close();
+//}
 
 // This function simplifies a tree bu removing nodes without mutations assigned
 boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Vertex<SimpleTree>>

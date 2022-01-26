@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
  * Copyright (C) 2019 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -32,7 +32,7 @@
  */
 struct PassDownAttachmentScore {
 
-    typedef std::array<double, 5> TPassDownAttachmentScore;
+    typedef std::array<double, 6> TPassDownAttachmentScore;
 
     TPassDownAttachmentScore passDownAttachmentScore;
 
@@ -44,7 +44,10 @@ struct PassDownAttachmentScore {
         // A mutation is present in any node of the subtree rooted at the sibling node
                 E_sib = 2,
         // The current node and any other node in a different subtree is mutated
-                E_parallel = 3
+                E_parallel = 3,
+
+                E_num_sib_inner_nodes = 4,
+                E_num_parent_nodes = 5
     };
 
     // init everything to -INFINITY because we are doing the computation in
@@ -54,7 +57,8 @@ struct PassDownAttachmentScore {
                                              -INFINITY,
                                              -INFINITY,
                                              -INFINITY,
-                                             -INFINITY,
+                                             0,
+                                             0,
                                      }}) {};
 
     double const &lossAltInCurrentNodeScore() const {
@@ -88,7 +92,32 @@ struct PassDownAttachmentScore {
     double &sibNodeScore() {
         return const_cast<double &>(static_cast<const PassDownAttachmentScore *>(this)->sibNodeScore());
     }
+    
+    double const &numSibInnerNodes() const {
+        return this->passDownAttachmentScore[E_num_sib_inner_nodes];
+    }
+
+    double &numSibInnerNodes() {
+        return const_cast<double &>(static_cast<const PassDownAttachmentScore *>(this)->numSibInnerNodes());
+    }
+
+    double const &numParentNodes() const {
+        return this->passDownAttachmentScore[E_num_parent_nodes];
+    }
+
+    double &numParentNodes() {
+        return const_cast<double &>(static_cast<const PassDownAttachmentScore *>(this)->numParentNodes());
+    }
 };
+
+
+std::ostream &operator<<(std::ostream &os, PassDownAttachmentScore const &obj) {
+    os << "lossAltInCurrentNodeScore:   " << obj.lossAltInCurrentNodeScore() << "\n";
+    os << "lossAltInCurrentNodeRScore:  " << obj.lossAltInCurrentNodeRScore() << "\n";
+    os << "paralleleScore:              " << obj.paralleleScore() << "\n";
+    os << "sibNodeScore:                " << obj.sibNodeScore() << "\n";
+    return os;
+}
 
 /*
  * This class combines many AttachmentScores into one object
@@ -148,6 +177,23 @@ struct PassDownAttachmentScores {
     double &sibNodeScore(unsigned attachPoint) {
         return const_cast<double &>(static_cast<const PassDownAttachmentScores *>(this)->sibNodeScore(attachPoint));
     }
+    
+    double const &numSibInnerNodes(unsigned attachPoint) const {
+        return this->passDownAttachmentScores[attachPoint].numSibInnerNodes();
+    }
+
+    double &numSibInnerNodes(unsigned attachPoint) {
+        return const_cast<double &>(static_cast<const PassDownAttachmentScores *>(this)->numSibInnerNodes(attachPoint));
+    }
+    
+    double const &numParentNodes(unsigned attachPoint) const {
+        return this->passDownAttachmentScores[attachPoint].numParentNodes();
+    }
+
+    double &numParentNodes(unsigned attachPoint) {
+        return const_cast<double &>(static_cast<const PassDownAttachmentScores *>(this)->numParentNodes(attachPoint));
+    }
+    
 
     template<typename TTree>
     void computeLogLossInCurrentInnerNode(
@@ -173,6 +219,7 @@ struct PassDownAttachmentScores {
         this->lossAltInCurrentNodeRScore(attachPoint) = subLogProb(this->lossAltInCurrentNodeScore(attachPoint),
                                                                    attachmentScores.hetScore(pN)
                                                                    - attachmentScores.hetScore(attachPoint));
+        
     }
 };
 

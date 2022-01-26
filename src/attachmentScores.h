@@ -1,16 +1,16 @@
 /**
- * SCIPhI: Single-cell mutation identification via phylogenetic inference
+ * SCIPhIN: Single-cell mutation identification via phylogenetic inference
  * <p>
- * Copyright (C) 2018 ETH Zurich, Jochen Singer
+ * Copyright (C) 2022 ETH Zurich, Jochen Singer
  * <p>
  * This file is part of SCIPhI.
  * <p>
- * SCIPhI is free software: you can redistribute it and/or modify
+ * SCIPhIN is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * <p>
- * SCIPhI is distributed in the hope that it will be useful,
+ * SCIPhIN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -42,9 +42,10 @@ class Config;
  * This class stores values associated with the attachment of mutations
  * to nodes in the phylogenetic tree.
  */
+
 struct AttachmentScore {
 
-    typedef std::array<double, 15> TAttachmentScore;
+    typedef std::array<double, 18> TAttachmentScore;
 
     TAttachmentScore attachmentScore;
 
@@ -81,7 +82,11 @@ struct AttachmentScore {
                 // number of child nodes that are inner nodes (0, 1, or 2)
                 E_numInnerChildNodes = 13,
                 // number of possibilities for a parallel mutation below the current node
-                E_numLcaRPoss = 14
+                E_numLcaRPoss = 14,
+                // number of possibilities for a parallel mutation below the current node
+                E_numFirstMutWildLoss = 15,
+                E_numFirstMutAltLoss = 16,
+                E_numFirstLca = 17
     };
 
     // init everything but the counter to -INFINITY because we are doing the computation in
@@ -98,6 +103,9 @@ struct AttachmentScore {
                                      -INFINITY,
                                      -INFINITY,
                                      -INFINITY,
+                                     0,
+                                     0,
+                                     0,
                                      0,
                                      0,
                                      0,
@@ -229,6 +237,30 @@ struct AttachmentScore {
         return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numLcaRPoss());
     }
 
+    double const &numFirstMutWildLoss() const {
+        return this->attachmentScore[E_numFirstMutWildLoss];
+    }
+
+    double &numFirstMutWildLoss() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numFirstMutWildLoss());
+    }
+    double const &numFirstMutAltLoss() const {
+        return this->attachmentScore[E_numFirstMutAltLoss];
+    }
+
+    double &numFirstMutAltLoss() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numFirstMutAltLoss());
+    }
+    double const &numFirstLca() const {
+        return this->attachmentScore[E_numFirstLca];
+    }
+
+    double &numFirstLca() {
+        return const_cast<double &>(static_cast<const AttachmentScore*>(this)->numFirstLca());
+    }
+
+
+
     double &finalScore() {
         return this->attachmentScore[E_finalScore];
     }
@@ -258,14 +290,18 @@ struct AttachmentScore {
     // score is contributed by the heterozygous, the homozygous, the loss, and the parallel model. Each contribution
     // is the product of three parts: its likelihood, its model parameter value, and the inverse of the number of
     // different placement possibilities
+
     template <typename TTreeType>
-    std::array<double, 5> computeMutTypeContribution(Config<TTreeType> const & config,
+    std::array<double, 6> computeMutTypeContribution(Config<TTreeType> const & config,
             AttachmentScore const & sumScore,
-            std::array<double, 5> & res) const
+            bool isSumScore = false)
     {
+
+
         double logPHet = -INFINITY;
         double logPHom = -INFINITY;
-        double logPLoss = -INFINITY;
+        double logPLossWild = -INFINITY;
+        double logPLossMut = -INFINITY;
         double logPPara = -INFINITY;
         double logPD = -INFINITY;
 
@@ -274,9 +310,9 @@ struct AttachmentScore {
         double hetWeight = 1.0;
 
         // Compute the homozygous contribution
+        unsigned numInnerNodes = config.getNumSamples() - 1;
         if (config.learnZygocity)
         {
-            unsigned numInnerNodes = config.getNumSamples() - 1;
             logPHom = this->homScore()
                       - std::log(numInnerNodes)
                       + std::log(config.getParam(Config<TTreeType>::E_nu));
@@ -287,19 +323,35 @@ struct AttachmentScore {
         // lost and where the alternative allele is lost
         if (config.computeLossScore)
         {
-            double lossR = this->lossWildScore() - std::log(sumScore.numInnerNodes());
-            double lossA = this->lossAltRScore() - std::log(sumScore.numAltRPoss());
-            logPLoss = addLogProbWeight(lossR, lossA, 0.5)
-                       + std::log(config.getParam(Config<TTreeType>::E_lambda));
-            hetWeight -= config.getParam(Config<TTreeType>::E_lambda);
+            logPLossWild= this->lossWildScore() 
+                       - std::log(this->numFirstMutWildLoss())
+                       + std::log(config.getParam(Config<TTreeType>::E_lambdaWildLoss));
+            if (!isSumScore){    
+                    //logPLossWild -= std::log(sumScore.numInnerNodes());
+                    logPLossWild-= std::log(numInnerNodes);
+            }
+            hetWeight -= config.getParam(Config<TTreeType>::E_lambdaWildLoss);
+            
+            logPLossMut = this->lossAltRScore() 
+                       - std::log(this->numFirstMutAltLoss())
+                       + std::log(config.getParam(Config<TTreeType>::E_lambdaMutLoss));
+            if (!isSumScore){    
+                      //logPLossMut -= std::log(sumScore.numAltRPoss());
+                      logPLossMut -= std::log(numInnerNodes);
+            }
+            hetWeight -= config.getParam(Config<TTreeType>::E_lambdaMutLoss);
         }
 
         // Compute the parallel contribution.
         if (config.computeParallelScore)
         {
             logPPara = this->lcaRScore()
-                       - std::log(sumScore.numLcaRPoss())
+                       - std::log(this->numFirstLca())
                        + std::log(config.getParam(Config<TTreeType>::E_parallel));
+            if (!isSumScore){    
+                 //logPPara -= std::log(sumScore.numLcaRPoss());
+                 logPPara -= std::log(numInnerNodes);
+            }
             hetWeight -= config.getParam(Config<TTreeType>::E_parallel);
         }
 
@@ -309,20 +361,20 @@ struct AttachmentScore {
                   - std::log(numNodes)
                   + std::log(hetWeight);
 
-        logPD = addLogProb(addLogProb(addLogProb(logPHet,logPHom),logPLoss),logPPara);
+        logPD = addLogProb(addLogProb(addLogProb(addLogProb(logPHet,logPHom),logPLossWild),logPLossMut),logPPara);
 
-        res = {{logPHet, logPHom, logPLoss, logPPara, logPD}};
-        return res;
+        return {{logPHet, logPHom, logPLossWild, logPLossMut, logPPara, logPD}};
     }
 
     // This functions computes the final score of an attachment point
     template <typename TTreeType>
     void computeFinalScore(Config<TTreeType> const & config,
             AttachmentScore const & sumScore,
-            bool isLeaf) {
+            bool isLeaf,
+            bool isSumScore = false) {
 
-        static std::array<double, 5> res;
-        this->computeMutTypeContribution(config, sumScore, res);
+        static std::array<double, 6> res;
+        res = this->computeMutTypeContribution(config, sumScore, isSumScore);
 
         // If the node is a leaf just return the weighted hetero score
         if (isLeaf) {
@@ -330,7 +382,11 @@ struct AttachmentScore {
             return;
         }
 
-        this->finalScore() = addLogProb(addLogProb(addLogProb(res[0],res[1]),res[2]),res[3]);
+        this->finalScore() = res[5];
+        if (std::isnan(this->finalScore()))
+        {
+            this->finalScore() = -std::numeric_limits<double>::infinity();
+        }
         return;
     }
 };
@@ -345,7 +401,8 @@ std::ostream &operator<<(std::ostream &os, AttachmentScore const &obj) {
     os << "lcaScore:         " << obj.lcaScore() << "\n";
     os << "lcaRScore:         " << obj.lcaRScore() << "\n";
     os << "childHetSumScore: " << obj.childHetSumScore() << "\n";
-    os << "lcaRScore:        " << obj.lcaRScore() << "\n";
+    os << "numLcaRPoss:      " << obj.numLcaRPoss() << "\n";
+    os << "numInnerNodes:  " << obj.numInnerNodes() << "\n";
     os << "numAltRPoss:      " << obj.numAltRPoss() << "\n";
     os << "finalScore:       " << obj.finalScore() << "\n";
     return os;
@@ -480,6 +537,30 @@ struct AttachmentScores {
         return this->attachmentScores[attachPoint].numLcaRPoss();
     }
 
+    double &numFirstMutWildLoss(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].numFirstMutWildLoss();
+    }
+
+    double const &numFirstMutWildLoss(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].numFirstMutWildLoss();
+    }
+
+    double &numFirstMutAltLoss(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].numFirstMutAltLoss();
+    }
+
+    double const &numFirstMutAltLoss(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].numFirstMutAltLoss();
+    }
+
+    double &numFirstLca(unsigned attachPoint) {
+        return this->attachmentScores[attachPoint].numFirstLca();
+    }
+
+    double const &numFirstLca(unsigned attachPoint) const {
+        return this->attachmentScores[attachPoint].numFirstLca();
+    }
+
     double &childHetSumScore(unsigned attachPoint) {
         return this->attachmentScores[attachPoint].childHetSumScore();
     }
@@ -600,6 +681,8 @@ struct AttachmentScores {
             // and right likelihoods.
             this->lossWildScore(attachPoint) = addLogProb(leftContWildLos, rightContWildLos);
         }
+        this->numFirstMutWildLoss(attachPoint) = isinf(this->lossWildScore(attachPoint)) ? 0 : 1;
+        this->numFirstMutAltLoss(attachPoint) = isinf(this->lossAltRScore(attachPoint)) ? 0 : 1;
     }
 
     template<typename TTree>
@@ -634,9 +717,12 @@ struct AttachmentScores {
         // The left child node cannot be mutated together with the children of the right child
         double rightContLcaR = lChildHetScore + this->childHetSumScore(rN);
         // Substract the prohibited cases
+        
         this->lcaRScore(attachPoint) = subLogProb(
                 subLogProb(this->lcaScore(attachPoint), hetContLcaR),
                 addLogProb(leftContLcaR, rightContLcaR));
+
+        std::cout.precision(20);
 
         // Count the number of placing possibilities
         if(tree[lN].sample == -1 && tree[rN].sample == -1) {
@@ -646,7 +732,9 @@ struct AttachmentScores {
                                              - 1
                                              - this->numInnerChildNodes(rN)
                                              - this->numInnerChildNodes(lN);
+            this->numFirstLca(attachPoint) += 1;
             return;
+
         }
 
         // Count the number of placing possibilities
@@ -654,6 +742,7 @@ struct AttachmentScores {
         {
             this->numInnerNodes(attachPoint) = 1 + this->numInnerNodes(lN);
             this->numInnerChildNodes(attachPoint) = 1;
+            this->numFirstLca(attachPoint) += 1;
             return;
         }
 
@@ -662,6 +751,7 @@ struct AttachmentScores {
         {
             this->numInnerNodes(attachPoint) = 1 + this->numInnerNodes(rN);
             this->numInnerChildNodes(attachPoint) = 1;
+            this->numFirstLca(attachPoint) += 1;
             return;
         }
     }
