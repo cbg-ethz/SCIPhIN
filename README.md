@@ -49,6 +49,6 @@ In order to see all available options type
 
 Executing
 
-`sciphi -o result --in cellNames.txt --seed 42 --im example.mpileup`
+`sciphin -o result --in cellNames.txt --seed 42 --im example.mpileup`
 
 will run SCIPhIN using the cell names provided in *cellNames.txt* (same order as in the mpileup file). Note that *cellNames.txt* is a tab delimited file with the cell name in the first column and a cell type identifier in the second column. The cell type can be either *CT* (tumor cell), *CN* (control normal cell), or *BN* (control bulk normal). Note that SCIPhIN assumes a pileup against a reference and ignores positions with 'N' as reference.
