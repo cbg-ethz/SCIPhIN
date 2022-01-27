@@ -2,7 +2,7 @@
 
 ## Description
 
-**Single-cell mutation identification via phylogenetic inference** (SCIPhIN) is a new approach to mutation detection in individual tumor cells by leveraging the evolutionary relationship among cells. SCIPhIN, jointly calls mutations in each individual cell and estimates the tumor phylogeny on these cells. Employing a Markov Chain Monte Carlo scheme we robustly account for the various sources of noise in single-cell sequencing data. Our approach enables us to reliably call mutations in each single cell even in experiments with high dropout rates and missing data
+**Single-Cell mutation Identification via finite-sites Phylogenetic Inference** (SCIPhIN) is a new approach to mutation detection in individual tumor cells by leveraging the evolutionary relationship among cells. SCIPhIN is based on SCIPhI, which jointly calls mutations in each individual cell and estimates the tumor phylogeny on these cells. In contrast to SCIPhI, SCIPhIN allows for mutation loss and parallele mutations, relaxing the infinite sites assumption. Employing a Markov Chain Monte Carlo scheme we robustly account for the various sources of noise in single-cell sequencing data. Our approach enables us to reliably call mutations in each single cell even in experiments with high dropout rates and missing data
 
 ## Availability
 
