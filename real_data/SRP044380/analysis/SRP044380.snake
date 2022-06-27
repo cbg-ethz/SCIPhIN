@@ -57,15 +57,17 @@ include: "../../pipe/qc_snake.py"
 #include: "../../pipe/var_exome_snake.py"
 include: "../../pipe/monovar_snake.py"
 
+CHI = ["-1", "0", "1", "10", "30", "100", "1000"]
 localrules: all
 rule all:
     input:
         REALIGNINDELSOUT + 'multiqc_report.html',
-        expand(OUTDIR + 'variants/monovar/{experiment}.vcf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/sciphi/{run}/{experiment}.vcf', experiment = getExperimentNames(), run = ['1', '2', '3']),
-        expand(OUTDIR + 'variants/sciphi/{run}/{experiment}_heatTree.pdf', experiment = getExperimentNames(), run = ['1', '2', '3']),
-        expand(OUTDIR + 'variants/monovar/{experiment}_heatTree.pdf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/monovar/{experiment}_cluster.pdf', experiment = getExperimentNames())
+        expand(OUTDIR + 'variants/sciphi/{num}/{experiment}_llp-{pen}_lpp-{pen}_heatTree.pdf', experiment = getExperimentNames(), num = ['1', '2'], pen = CHI),
+        expand(OUTDIR + 'variants/sciphi/{num}/{experiment}_max_llp-{pen}_lpp-{pen}_heatTree.pdf', experiment = getExperimentNames(), num = ['1', '2'], pen = CHI),
+        expand(OUTDIR + 'variants/sciphi/{num}/{experiment}_chi_max_heatTree.pdf', experiment = getExperimentNames(), num = ['1', '2']),
+        expand(OUTDIR + 'variants/sciphi/{num}/{experiment}_chi_heatTree.pdf', experiment = getExperimentNames(), num = ['1', '2']),
+        expand(OUTDIR + 'variants/monovar/{experiment}_llp-{pen}_lpp-{pen}_heatTree.pdf', experiment = getExperimentNames(), pen = CHI),
+        expand(OUTDIR + 'variants/monovar/{experiment}_llp-{pen}_lpp-{pen}_cluster.pdf', experiment = getExperimentNames(), pen = CHI)
 
 rule samtoolsCombinedMpileup:
     input:
@@ -90,9 +92,9 @@ rule samtoolsCombinedMpileup:
     shell:
         'samtools mpileup -f {input.ref} {params.params} -b {input.fileNames} -l {input.regions} > {output.mpileup}; gzip < {output.mpileup} > {output.gz}'
 
-ruleorder: createTumorBamFileSummaryScate > createTumorBamFileSummary
-localrules: createTumorBamFileSummaryScate
-rule createTumorBamFileSummaryScate:
+ruleorder: createTumorBamFileSummarySCIPhI > createTumorBamFileSummary
+localrules: createTumorBamFileSummarySCIPhI
+rule createTumorBamFileSummarySCIPhI:
     input:
         bams = getFinalTumorBams,
     output:
@@ -116,22 +118,22 @@ rule sciphi_panel:
         mpileup = temp(MPILEUPOUT + '{experiment}_tumor_complete.mpileup'),
         fileNames = SCIPHIOUT + '{experiment}_tumor_bamFileNames.txt'
     output:
-        tsv = SCIPHIOUT + '{run}/{experiment}_mut2Sample.tsv',
-        probs = SCIPHIOUT + '{run}/{experiment}.probs',
-        gv = SCIPHIOUT + '{run}/{experiment}.gv',
-        params = SCIPHIOUT + '{run}/{experiment}.params.txt',
-        vcf = SCIPHIOUT + '{run}/{experiment}.vcf'
+        tsv = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}_mut2Sample.tsv',
+        probs = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.probs',
+        gv = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.gv',
+        params = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.params.txt',
+        vcf = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.vcf'
     params:
-        lsfoutfile = SCIPHIOUT + '{run}/{experiment}.lsfout.log',
-        lsferrfile = SCIPHIOUT + '{run}/{experiment}.lsferr.log',
+        lsfoutfile = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.lsfout.log',
+        lsferrfile = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.lsferr.log',
         scratch = config['tools']['sciphi']['scratch'],
         mem = config['tools']['sciphi']['mem'],
         time = config['tools']['sciphi']['time'],
-        outShort = SCIPHIOUT + '{run}/{experiment}_short',
-        outIndexShort = SCIPHIOUT + '{run}/{experiment}/index_short',
-        bestIndexShort = SCIPHIOUT + '{run}/{experiment}_short/best_index',
-        out = SCIPHIOUT + '{run}/{experiment}',
-        outIndex = SCIPHIOUT + '{run}/{experiment}/index',
+        outShort = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}_short',
+        outIndexShort = SCIPHIOUT + '{run}/{experiment}/index_llp-{llp}_lpp-{lpp}_short',
+        bestIndexShort = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}_short/best_index',
+        out = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}',
+        outIndex = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}/index',
     benchmark:
         SCIPHIOUT + '{run}/{experiment}.benchmark'
     threads:
@@ -142,10 +144,11 @@ rule sciphi_panel:
         ('{config[tools][sciphi][call]} ' +
         '-o {params.outShort} ' +
         '--ol {params.outIndexShort} ' +
-        '-i {input.ref} ' +
         '--in {input.fileNames} ' +
         '--me {input.regions} ' +
         '--lz 0 ' + 
+        '--ll 0 ' + 
+        '--lp 0 ' + 
         '--zyg 0.1 ' + 
         '--seed {wildcards.run} ' +
         '-l 1000000 ' +
@@ -154,17 +157,211 @@ rule sciphi_panel:
         '-e 0 ' +
         '--ese 0 ' +
         '--sub 0.0000005 ' +
-        '{input.mpileup}; ' +
+        '--im {input.mpileup}; ' +
         '{config[tools][sciphi][call]} ' +
         '-o {params.out} ' +
         '--il {params.bestIndexShort} ' +
         '--ol {params.outIndex} ' +
-        '-i {input.ref} ' +
         '--in {input.fileNames} ' +
         '--me {input.regions} ' +
         '--lz 1 ' + 
+        '--ll 1 ' + 
+        '--lp 1 ' + 
+        '--llp {wildcards.llp} ' +
+        '--lpp {wildcards.lpp} ' +
         '--seed {wildcards.run} ' +
         '-l 5000000 ' +
         '--ls 500000 ' +
         '--sub 0.0000005 ' +
-        '{input.mpileup}')
+        '--im {input.mpileup}')
+ruleorder: sciphi_panel_max > sciphi_panel
+rule sciphi_panel_max:
+    input:
+        ref = config['resources'][ORGANISM]['reference'],
+        regions = config['tools']['sciphi']['exRegions'],
+        mpileup = temp(MPILEUPOUT + '{experiment}_tumor_complete.mpileup'),
+        fileNames = SCIPHIOUT + '{experiment}_tumor_bamFileNames.txt'
+    output:
+        tsv = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}_mut2Sample.tsv',
+        probs = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.probs',
+        gv = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.gv',
+        params = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.params.txt',
+        vcf = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.vcf'
+    params:
+        lsfoutfile = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.lsfout.log',
+        lsferrfile = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.lsferr.log',
+        scratch = config['tools']['sciphi']['scratch'],
+        mem = config['tools']['sciphi']['mem'],
+        time = config['tools']['sciphi']['time'],
+        outShort = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}_short',
+        outIndexShort = SCIPHIOUT + '{run}/{experiment}/index_max_llp-{llp}_lpp-{lpp}_short',
+        bestIndexShort = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}_short/best_index',
+        out = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}',
+        outIndex = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}/index',
+    benchmark:
+        SCIPHIOUT + '{run}/{experiment}.benchmark'
+    threads:
+        1
+    log:
+        SCIPHIOUT + '{run}/{experiment}.log'
+    shell:
+        ('{config[tools][sciphi][call]} ' +
+        '-o {params.outShort} ' +
+        '--ol {params.outIndexShort} ' +
+        '--in {input.fileNames} ' +
+        '--me {input.regions} ' +
+        '--lz 0 ' + 
+        '--ll 0 ' + 
+        '--lp 0 ' + 
+        '--zyg 0.1 ' + 
+        '--seed {wildcards.run} ' +
+        '-l 1000000 ' +
+        '--ls 1 ' +
+        '--ur 1 ' +
+        '-e 0 ' +
+        '--ese 0 ' +
+        '--sub 0.0000005 ' +
+        '--im {input.mpileup}; ' +
+        '{config[tools][sciphi][call]} ' +
+        '-o {params.out} ' +
+        '--il {params.bestIndexShort} ' +
+        '--ol {params.outIndex} ' +
+        '--in {input.fileNames} ' +
+        '--me {input.regions} ' +
+        '--lz 1 ' + 
+        '--ll 1 ' + 
+        '--lp 1 ' + 
+        '--mlm 1 ' +
+        '--llp {wildcards.llp} ' +
+        '--lpp {wildcards.lpp} ' +
+        '--seed {wildcards.run} ' +
+        '-l 5000000 ' +
+        '--ls 500000 ' +
+        '--sub 0.0000005 ' +
+        '--im {input.mpileup}')
+ruleorder: sciphi_panel_chi > sciphi_panel
+rule sciphi_panel_chi:
+    input:
+        ref = config['resources'][ORGANISM]['reference'],
+        regions = config['tools']['sciphi']['exRegions'],
+        mpileup = temp(MPILEUPOUT + '{experiment}_tumor_complete.mpileup'),
+        fileNames = SCIPHIOUT + '{experiment}_tumor_bamFileNames.txt'
+    output:
+        tsv = SCIPHIOUT + '{run}/{experiment}_chi_mut2Sample.tsv',
+        probs = SCIPHIOUT + '{run}/{experiment}_chi.probs',
+        gv = SCIPHIOUT + '{run}/{experiment}_chi.gv',
+        params = SCIPHIOUT + '{run}/{experiment}_chi.params.txt',
+        vcf = SCIPHIOUT + '{run}/{experiment}_chi.vcf'
+    params:
+        lsfoutfile = SCIPHIOUT + '{run}/{experiment}_chi.lsfout.log',
+        lsferrfile = SCIPHIOUT + '{run}/{experiment}_chi.lsferr.log',
+        scratch = config['tools']['sciphi']['scratch'],
+        mem = config['tools']['sciphi']['mem'],
+        time = config['tools']['sciphi']['time'],
+        outShort = SCIPHIOUT + '{run}/{experiment}_chi_short',
+        outIndexShort = SCIPHIOUT + '{run}/{experiment}/index_chi_short',
+        bestIndexShort = SCIPHIOUT + '{run}/{experiment}_chi_short/best_index',
+        out = SCIPHIOUT + '{run}/{experiment}_chi',
+        outIndex = SCIPHIOUT + '{run}/{experiment}_chi/index',
+    benchmark:
+        SCIPHIOUT + '{run}/{experiment}.benchmark'
+    threads:
+        1
+    log:
+        SCIPHIOUT + '{run}/{experiment}.log'
+    shell:
+        ('{config[tools][sciphi][call]} ' +
+        '-o {params.outShort} ' +
+        '--ol {params.outIndexShort} ' +
+        '--in {input.fileNames} ' +
+        '--me {input.regions} ' +
+        '--lz 0 ' + 
+        '--ll 0 ' + 
+        '--lp 0 ' + 
+        '--zyg 0.1 ' + 
+        '--seed {wildcards.run} ' +
+        '-l 1000000 ' +
+        '--ls 1 ' +
+        '--ur 1 ' +
+        '-e 0 ' +
+        '--ese 0 ' +
+        '--sub 0.0000005 ' +
+        '--im {input.mpileup}; ' +
+        '{config[tools][sciphi][call]} ' +
+        '-o {params.out} ' +
+        '--il {params.bestIndexShort} ' +
+        '--ol {params.outIndex} ' +
+        '--in {input.fileNames} ' +
+        '--me {input.regions} ' +
+        '--lz 1 ' + 
+        '--ll 1 ' + 
+        '--lp 1 ' + 
+        '--chi 1 ' +
+        '--seed {wildcards.run} ' +
+        '-l 5000000 ' +
+        '--ls 500000 ' +
+        '--sub 0.0000005 ' +
+        '--im {input.mpileup}')
+rule sciphi_panel_chi_max:
+    input:
+        ref = config['resources'][ORGANISM]['reference'],
+        regions = config['tools']['sciphi']['exRegions'],
+        mpileup = temp(MPILEUPOUT + '{experiment}_tumor_complete.mpileup'),
+        fileNames = SCIPHIOUT + '{experiment}_tumor_bamFileNames.txt'
+    output:
+        tsv = SCIPHIOUT + '{run}/{experiment}_chi_max_mut2Sample.tsv',
+        probs = SCIPHIOUT + '{run}/{experiment}_chi_max.probs',
+        gv = SCIPHIOUT + '{run}/{experiment}_chi_max.gv',
+        params = SCIPHIOUT + '{run}/{experiment}_chi_max.params.txt',
+        vcf = SCIPHIOUT + '{run}/{experiment}_chi_max.vcf'
+    params:
+        lsfoutfile = SCIPHIOUT + '{run}/{experiment}_chi_max.lsfout.log',
+        lsferrfile = SCIPHIOUT + '{run}/{experiment}_chi_max.lsferr.log',
+        scratch = config['tools']['sciphi']['scratch'],
+        mem = config['tools']['sciphi']['mem'],
+        time = config['tools']['sciphi']['time'],
+        outShort = SCIPHIOUT + '{run}/{experiment}_chi_max_short',
+        outIndexShort = SCIPHIOUT + '{run}/{experiment}/index_chi_max_short',
+        bestIndexShort = SCIPHIOUT + '{run}/{experiment}_chi_max_short/best_index',
+        out = SCIPHIOUT + '{run}/{experiment}_chi_max',
+        outIndex = SCIPHIOUT + '{run}/{experiment}_chi_max/index',
+    benchmark:
+        SCIPHIOUT + '{run}/{experiment}.benchmark'
+    threads:
+        1
+    log:
+        SCIPHIOUT + '{run}/{experiment}.log'
+    shell:
+        ('{config[tools][sciphi][call]} ' +
+        '-o {params.outShort} ' +
+        '--ol {params.outIndexShort} ' +
+        '--in {input.fileNames} ' +
+        '--me {input.regions} ' +
+        '--lz 0 ' + 
+        '--ll 0 ' + 
+        '--lp 0 ' + 
+        '--zyg 0.1 ' + 
+        '--seed {wildcards.run} ' +
+        '-l 1000000 ' +
+        '--ls 1 ' +
+        '--ur 1 ' +
+        '-e 0 ' +
+        '--ese 0 ' +
+        '--sub 0.0000005 ' +
+        '--im {input.mpileup}; ' +
+        '{config[tools][sciphi][call]} ' +
+        '-o {params.out} ' +
+        '--il {params.bestIndexShort} ' +
+        '--ol {params.outIndex} ' +
+        '--in {input.fileNames} ' +
+        '--me {input.regions} ' +
+        '--lz 1 ' + 
+        '--ll 1 ' + 
+        '--lp 1 ' + 
+        '--mlm 1 ' +
+        '--chi 1 ' + 
+        '--seed {wildcards.run} ' +
+        '-l 5000000 ' +
+        '--ls 500000 ' +
+        '--sub 0.0000005 ' +
+        '--im {input.mpileup}')

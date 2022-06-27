@@ -32,7 +32,7 @@ ggplot(data = df, aes(x = cells, y = dist, fill = exp)) +
   xlab("Number of cells") +
   ylab("Distance") +
   scale_y_continuous(limits = c(0, NA)) +
-  scale_fill_manual(values = c("firebrick3", "steelblue"),labels=c("Random", expression(paste("SCI", Phi)))) +
+  scale_fill_manual(values = c("firebrick3", "steelblue"),labels=c("Random", expression(paste("SCI", Phi, "N")))) +
   theme(legend.title=element_blank(),
         #legend.position = c(0.8, 0.2),
         text = element_text(size=25),

@@ -315,7 +315,20 @@ double
 runMCMC(typename Config<TTreeType>::TGraph &bestTree,
         std::array<std::tuple<double, double>, 9> &bestParams,
         Config<TTreeType> &config,
-        std::vector<std::vector<unsigned>> &sampleTrees) {
+        std::vector<std::vector<unsigned>> &sampleTrees)
+{
+    std::vector<std::queue<double>> rootProbabilities(config.getNumMutations());
+    return runMCMC(bestTree,bestParams,config,sampleTrees, rootProbabilities);
+}
+
+template<typename TTreeType>
+double
+runMCMC(typename Config<TTreeType>::TGraph &bestTree,
+        std::array<std::tuple<double, double>, 9> &bestParams,
+        Config<TTreeType> &config,
+        std::vector<std::vector<unsigned>> &sampleTrees,
+        std::vector<std::queue<double>> &rootProbabilities)
+    {
 
     double bestTreeLogScore = -DBL_MAX;         // initialize best tree score
     config.updateContainers(0);                 // update the container usage (define which mutations to use currently)
@@ -334,6 +347,22 @@ runMCMC(typename Config<TTreeType>::TGraph &bestTree,
 
     double propTreeLogScore;                    // the new tree log score
     double random;                              // variable for random numbers
+
+    rootProbabilities.resize(config.getNumMutations());
+    std::vector<double> sumRootProb(config.getNumMutations(), 0);
+    std::vector<bool> mutInRoot(config.getNumMutations());
+    
+
+    // these variables are needed for the ml mode
+    unsigned numRejectedTreeMoves = 0;
+    unsigned maxNumRejectedTreeMoves = 10 * config.numSamples;
+    bool acceptAllTreeMoves = false;
+    unsigned numAcceptAllTreeMoves = 0;
+    unsigned maxNumAcceptAllTreeMoves = config.numSamples;
+    unsigned restarts = 0;
+    unsigned numMlRestarts = config.ml_mode ? 10 : 0;
+
+    unsigned numMutInRoot = 0;
 
     for (unsigned it = 0; it < config.loops + config.sampleLoops; it++) {        // run the iterations of the MCMC
 
@@ -364,15 +393,47 @@ runMCMC(typename Config<TTreeType>::TGraph &bestTree,
         // Compute score of new tree
         propTreeLogScore = scoreTree(config);
 
-
+        // if the maximum likelihood approach is chosen and the current change changed the tree only accept better trees
         random = (double) rand() / RAND_MAX;
+        if (config.ml_mode) // && (config.getMoveTyp() != 4))
+        {
+            random = 1; // only accept better trees
+            if (numRejectedTreeMoves == maxNumRejectedTreeMoves)
+            {
+                acceptAllTreeMoves = true; // once a maximum is hit we restart 10 times. the restart happens from a tree mutated from the current tree
+                if (restarts == numMlRestarts) // max number of restarts is reached
+                {
+                    it = config.loops + config.sampleLoops;
+                    config.sampleLoops = 1;
+                    random = std::exp((propTreeLogScore - currTreeLogScore)) + 1;
+                }
+                else if (numAcceptAllTreeMoves < maxNumAcceptAllTreeMoves)
+                {
+                    random = 0;
+                    ++numAcceptAllTreeMoves;
+                }
+                else if (numAcceptAllTreeMoves == maxNumAcceptAllTreeMoves)
+                {
+                    restarts += 1;
+                    it = 0; 
+                    numAcceptAllTreeMoves = 0;
+                    numRejectedTreeMoves = 0;
+                    acceptAllTreeMoves = false;
+                }
+
+            }
+        }
 
         // the proposed tree is accepted
         if (random < std::exp((propTreeLogScore - currTreeLogScore))) {
             // update counter of parameter estimation
             if (config.getMoveTyp() == 4)
+            {
                 config.setSDCountParam(config.getParamToOptimize(),
                                        config.getSDCountParam(config.getParamToOptimize()) + 1);
+                if (!acceptAllTreeMoves)
+                    numRejectedTreeMoves = 0;
+            }
             currTreeLogScore = propTreeLogScore;
 
             manageBestTrees(config,
@@ -386,11 +447,62 @@ runMCMC(typename Config<TTreeType>::TGraph &bestTree,
                 config.resetParameters();
             } else {
                 config.getTree().swap(config.getTmpTree());
+
+                if (!acceptAllTreeMoves)
+                    ++numRejectedTreeMoves;
             }
         }
+        
+        if (config.learnChi)
+        {
+            getRootProbabilities(config, rootProbabilities, sumRootProb);
+            if (it == 1000)
+            {
+                for (unsigned i = 0; i < config.getNumMutations(); ++i)
+                {
+                    mutInRoot[i] = (sumRootProb[i]/1000 >= 0.95) ? true : false;
+                    numMutInRoot += mutInRoot[i];
+                }
+            }
+            else if (it > 1000)
+            {
+                unsigned missed = 0;
+                for (unsigned i = 0; i < config.getNumMutations(); ++i)
+                {
+                    if (mutInRoot[i])
+                    {
+                        if (sumRootProb[i]/1000 <= 0.95)
+                        {
+                            missed += 1;
+                        }
+                    }
+                }
+                if ((double)missed/(double)(numMutInRoot) > 0.95 || config.parallelScorePenalty < 1.0)
+                {
+                    config.lossScorePenalty *= 10;
+                    config.parallelScorePenalty *= 10;
+                    config.learnChi = false;
+                    break;
+                }
+                if (it % 1000 == 0)
+                {
+                    config.lossScorePenalty /= 10;
+                    config.parallelScorePenalty /= 10;
+                }
+                  
+            }
+
+        }
+
 
         // sample from the posterior distribution
         if (it >= config.loops) {
+            if (config.ml_mode)
+            {
+                config.getTree() = bestTree;
+                config.params = bestParams;
+            }
+            getRootProbabilities(config, rootProbabilities, sumRootProb);
             updateMutInSampleCounts(config);
             config.updateParamsCounter();
             if (config.sampling != 0 && it%config.sampling == 0)

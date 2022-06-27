@@ -108,7 +108,7 @@
             "params": "-p "
         },
         "monovar": {
-            "activate" : "source activate.sh",
+            "activate" : "",
             "call" : "monovar.py",
             "scratch": "10000",
             "mem": "10000",
@@ -116,7 +116,7 @@
             "threads": 1
         },
         "sciphi": {
-            "call" : "sciphin/sciphin",
+            "call" : "sciphin",
             "params": "-l 1000000",
             "scratch": "2000",
             "mem": "2000",
@@ -124,19 +124,19 @@
             "threads": 1
         },
         "sciphiToHeatMap": {
-            "call1" : "sciphin/convertTree2Map",
-            "call2" : "sciphin/benchmark/createSCIPhITreeHeatMap.R"
+            "call1" : "convertTree2Map",
+            "call2" : "Rscript createSCIPhITreeHeatMap.R"
         },
         "monovarToHeatMap": {
-            "call1" : "python3 sciphin/benchmark/monovarToMap.py",
-            "call2" : "Rscript sciphin/benchmark/createSCIPhITreeHeatMap.R"
+            "call1" : "python3 monovarToMap.py",
+            "call2" : "module load gcc/6.3.0 boost/1.69.0; module load r/4.0.2; Rscript createSCIPhITreeHeatMap.R"
         },
         "sciphiOverviewGraph": {
-            "call1" : "python3 sciphin/benchmark/createOverviewGraph2.py",
+            "call1" : "python3 createOverviewGraph2.py",
             "call2" : "dot"
         },
         "monovarCluster": {
-            "call" : "Rscript sciphi/benchmark/createMonovarCluster_withDen.r"
+            "call" : "Rscript createMonovarCluster_withDen.r"
         }
     }
 }

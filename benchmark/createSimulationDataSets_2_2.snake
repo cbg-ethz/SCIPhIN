@@ -29,7 +29,7 @@ DROPOUTRATE = 0.2
 LOOPS = 1000000
 MAXCOVERAGE = 300
 NUMMUTATIONS = 100
-NUMCELLS = ['10', '25', '50']
+NUMCELLS = ['25']#['10', '25', '50']
 PRIORSSCIPHI = ['0.01','0.001','0.0001','0.00001','0.000001',]
 PRIORSMONOVAR = ['0.2','0.02','0.002','0.0002','0.00002',]
 DROPOUTS = ['0', '0.1', '0.2', '0.3']
@@ -51,22 +51,10 @@ include: "createSimulationDataSets.snake"
 
 rule all:
     input:
-        #OUTDIR + 'distance_numCells.txt',
-        #OUTDIR + 'distance_drop.txt',
-        #OUTDIR + 'distance_prior.txt',
-        #OUTDIR + 'distance_zyg.txt',
-        #OUTDIR + 'distance_cpn.txt',
-        #OUTDIR + 'distance_tree.txt',
-        #OUTDIR + 'distance_drop_wVS.txt',
+        OUTDIR + 'distance_tree.txt',
         OUTDIR + 'distance_loss.txt',
         OUTDIR + 'distance_para.txt',
         OUTDIR + 'distance_lossPara.txt',
-        #OUTDIR + 'noNAs_distance_numCells.txt',
-        #OUTDIR + 'noNAs_distance_drop.txt',
-        #OUTDIR + 'noNAs_distance_prior.txt',
-        #OUTDIR + 'noNAs_distance_zyg.txt',
-        #OUTDIR + 'noNAs_distance_cpn.txt',
-        #OUTDIR + 'noNAs_distance_drop_wVS.txt',
         OUTDIR + 'noNAs_distance_loss.txt',
         OUTDIR + 'noNAs_distance_para.txt',
         OUTDIR + 'noNAs_distance_lossPara.txt',

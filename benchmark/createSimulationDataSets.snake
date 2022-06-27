@@ -136,7 +136,8 @@ localrules: createBamFileSummaryScate
 rule createBamFileSummaryScate:
     output:
         bam = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/sciphi/force_zyg_{fzyg}/input_spec.txt',
-        bam_orig = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/sciphi_orig/force_zyg_{fzyg}/input_spec.txt'
+        bam_orig = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/sciphi_orig/force_zyg_{fzyg}/input_spec.txt',
+        bam_max = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/sciphi_max/force_zyg_{fzyg}/input_spec.txt'
     params: 
         bams = getBams
     shell:
@@ -147,6 +148,7 @@ rule createBamFileSummaryScate:
             printf $file"\tCT\n" >> {output.bam}
         done
         cp {output.bam} {output.bam_orig}
+        cp {output.bam} {output.bam_max}
         '''
 
 def getZyg(wildcards):
@@ -158,10 +160,18 @@ def getZyg(wildcards):
 def get_ll_lp(wildcards):
     if wildcards.sciphi == 'sciphi':
         return '1'
+    if wildcards.sciphi == 'sciphi_max':
+        return '1'
     else:
         return '0'
 
-rule sciphi:
+def get_mlm(wildcards):
+    if wildcards.sciphi == 'sciphi_max':
+        return '1'
+    else:
+        return '0'
+
+rule sciphi_n:
     input:
         fileNames = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/{sciphi}/force_zyg_{fzyg}/input_spec.txt',
         mpileups = OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/combined.mpileup'
@@ -183,6 +193,7 @@ rule sciphi:
         seed = getSeed,
         ll = get_ll_lp,
         lp = get_ll_lp,
+        mlm = get_mlm
     benchmark:
         OUTDIR + 'cells_{cells}/muts_{muts}/drop_{drop}/zyg_{zyg}/cpn_{cpn}/loss_{loss}/para_{para}/run_{run}/prior_{prior}/{sciphi}/force_zyg_{fzyg}/{sciphi}_mutations.benchmark'
     threads:
@@ -193,6 +204,7 @@ rule sciphi:
         (SCIPHI + 
         ' --ll {params.ll} ' +
         '--lp {params.lp} ' +
+        '--mlm {params.mlm} ' +
         '--ol {params.out}/{wildcards.sciphi}/last ' +
         '--cwm 2 ' + 
         '--lz {params.zyg} ' +
@@ -418,7 +430,8 @@ rule gatherBenchmarksLoss:
     input:
         in1 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', loss = LOSS, run = range(0, NUMRUNS), sciphi = ['sciphi']),
         in2 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', loss = LOSS, run = range(0, NUMRUNS), sciphi = ['sciphi_orig']),
-        in3 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/prior_0.002/monovar/monovar_distance.txt', loss = LOSS, run = range(0, NUMRUNS)),
+        in3 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', loss = LOSS, run = range(0, NUMRUNS), sciphi = ['sciphi_max']),
+        in4 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/prior_0.002/monovar/monovar_distance.txt', loss = LOSS, run = range(0, NUMRUNS)),
     output:
         txt = OUTDIR + '{distance}_loss.txt',
         rec = OUTDIR + '{distance}_loss_rec.pdf',
@@ -427,18 +440,27 @@ rule gatherBenchmarksLoss:
         inFile = OUTDIR + '{distance}_loss_in.txt'
     shell:
         ('> {output.inFile}; ' + 
-        'for f in {input.in1}; do echo $f >> {output.inFile}; done; ' +
-        'for f in {input.in2}; do echo $f >> {output.inFile}; done; ' +
-        'for f in {input.in3}; do echo $f >> {output.inFile}; done; ' +
+        'for l in ' + " ".join(LOSS) + '; do for r in ' + " ".join([str(r) for r in range(0, NUMRUNS)]) + '; do ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{l}}/para_0/run_${{r}}/prior_0.0001/sciphi/force_zyg_1/sciphi_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{l}}/para_0/run_${{r}}/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{l}}/para_0/run_${{r}}/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{l}}/para_0/run_${{r}}/prior_0.002/monovar/monovar_distance.txt"\\n" >> {output.inFile}; ' +
+        'done; done; ' +
         PYTHON3 + ' ' + GATHERBENCH + ' {output.txt} {output.inFile}; ' +
         RSCRIPT  + PLOTLOSS + ' {output.txt}')
+        #'for f in {input.in1}; do echo $f >> {output.inFile}; done; ' +
+        #'for f in {input.in2}; do echo $f >> {output.inFile}; done; ' +
+        #'for f in {input.in3}; do echo $f >> {output.inFile}; done; ' +
+        #PYTHON3 + ' ' + GATHERBENCH + ' {output.txt} {output.inFile}; ' +
+        #RSCRIPT  + PLOTLOSS + ' {output.txt}')
 
 localrules: gatherBenchmarksPara
 rule gatherBenchmarksPara:
     input:
         in1 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', para = PARA, run = range(0, NUMRUNS), sciphi = ['sciphi']),
         in2 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', para = PARA, run = range(0, NUMRUNS), sciphi = ['sciphi_orig']),
-        in3 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/prior_0.002/monovar/monovar_distance.txt', para = PARA, run = range(0, NUMRUNS)),
+        in3 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', para = PARA, run = range(0, NUMRUNS), sciphi = ['sciphi_max']),
+        in4 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/prior_0.002/monovar/monovar_distance.txt', para = PARA, run = range(0, NUMRUNS)),
     output:
         txt = OUTDIR + '{distance}_para.txt',
         rec = OUTDIR + '{distance}_para_rec.pdf',
@@ -447,18 +469,27 @@ rule gatherBenchmarksPara:
         inFile = OUTDIR +  '{distance}_para_in.txt'
     shell:
         ('> {output.inFile}; ' + 
-        'for f in {input.in1}; do echo $f >> {output.inFile}; done; ' +
-        'for f in {input.in2}; do echo $f >> {output.inFile}; done; ' +
-        'for f in {input.in3}; do echo $f >> {output.inFile}; done; ' +
+        'for p in ' + " ".join(PARA) + '; do for r in ' + " ".join([str(r) for r in range(0, NUMRUNS)]) + '; do ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_${{p}}/run_${{r}}/prior_0.0001/sciphi/force_zyg_1/sciphi_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_${{p}}/run_${{r}}/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_${{p}}/run_${{r}}/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_${{p}}/run_${{r}}/prior_0.002/monovar/monovar_distance.txt"\\n" >> {output.inFile}; ' +
+        'done; done; ' +  
         PYTHON3 + ' ' + GATHERBENCH + ' {output.txt} {output.inFile}; ' +
         RSCRIPT  + PLOTPARA + ' {output.txt}')
+        #'for f in {input.in1}; do echo $f >> {output.inFile}; done; ' +
+        #'for f in {input.in2}; do echo $f >> {output.inFile}; done; ' +
+        #'for f in {input.in3}; do echo $f >> {output.inFile}; done; ' +
+        #PYTHON3 + ' ' + GATHERBENCH + ' {output.txt} {output.inFile}; ' +
+        #RSCRIPT  + PLOTPARA + ' {output.txt}')
 
 localrules: gatherBenchmarksLossPara
 rule gatherBenchmarksLossPara:
     input:
         in1 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', loss = LOSS, run = range(0, NUMRUNS), sciphi=['sciphi']),
         in2 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', loss = LOSS, run = range(0, NUMRUNS), sciphi=['sciphi_orig']),
-        in3 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/prior_0.002/monovar/monovar_distance.txt', loss = LOSS, run = range(0, NUMRUNS)),
+        in3 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/prior_0.0001/{sciphi}/force_zyg_1/{sciphi}_{{distance}}.txt', loss = LOSS, run = range(0, NUMRUNS), sciphi=['sciphi_max']),
+        in4 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/prior_0.002/monovar/monovar_distance.txt', loss = LOSS, run = range(0, NUMRUNS)),
     output:
         txt = OUTDIR + '{distance}_lossPara.txt',
         rec = OUTDIR + '{distance}_lossPara_rec.pdf',
@@ -466,34 +497,65 @@ rule gatherBenchmarksLossPara:
         f1 = OUTDIR +  '{distance}_lossPara_f1.pdf',
         inFile = OUTDIR +  '{distance}_lossPara_in.txt'
     shell:
-        ('> {output.inFile}; ' + 
-        'for f in {input.in1}; do echo $f >> {output.inFile}; done; ' +
-        'for f in {input.in2}; do echo $f >> {output.inFile}; done; ' +
-        'for f in {input.in3}; do echo $f >> {output.inFile}; done; ' +
+        ('> {output.inFile}; ' +
+        'for l in ' + " ".join(LOSS) + '; do for r in ' + " ".join([str(r) for r in range(0, NUMRUNS)]) + '; do ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{l}}/para_0.05/run_${{r}}/prior_0.0001/sciphi/force_zyg_1/sciphi_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{l}}/para_0.05/run_${{r}}/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{l}}/para_0.05/run_${{r}}/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_{wildcards.distance}.txt"\\n" >> {output.inFile}; ' +
+        'printf ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{l}}/para_0.05/run_${{r}}/prior_0.002/monovar/monovar_distance.txt"\\n" >> {output.inFile}; ' +
+        'done; done; ' +  
         PYTHON3 + ' ' + GATHERBENCH + ' {output.txt} {output.inFile}; ' +
         RSCRIPT  + PLOTLOSSPARA + ' {output.txt}')
+        #'for f in {input.in1}; do echo $f >> {output.inFile}; done; ' +
+        #'for f in {input.in2}; do echo $f >> {output.inFile}; done; ' +
+        #'for f in {input.in3}; do echo $f >> {output.inFile}; done; ' +
+        #'for f in {input.in4}; do echo $f >> {output.inFile}; done; ' +
+        #PYTHON3 + ' ' + GATHERBENCH + ' {output.txt} {output.inFile}; ' +
+        #RSCRIPT  + PLOTLOSSPARA + ' {output.txt}')
 
 localrules: gatherRandomTreeBenchmark
 rule gatherRandomTreeBenchmark:
     input:
-        expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_0/run_{run}/art_tree_mut2sample.tsv', numCells = NUMCELLS, run = range(0, NUMRUNS))
+        d1 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/art_tree_mut2sample.tsv', run = range(0, NUMRUNS), loss = LOSS),
+        d2 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/art_tree_mut2sample.tsv', run = range(0, NUMRUNS), loss = LOSS),
+        d3 = expand(OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/art_tree_mut2sample.tsv', run = range(0, NUMRUNS), para = PARA)
     output:
         txt = OUTDIR + 'distance_random_tree.txt'
     params:
-        numCells = NUMCELLS,
+        numCells = 25,
         numRuns = NUMRUNS
     shell:
-        'for num in {params.numCells}; do for ((i=0; i<{params.numRuns}; ++i)); do for ((j=i+1; j<{params.numRuns};++j)); do file1=\"cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_0/run_${{i}}/art_tree_mut2sample.tsv\"; file2=\"cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_0/run_${{j}}/art_tree_mut2sample.tsv\"; printf \"Random\\t${{i}}_${{j}}\\t${{num}}\\t\" >> {output.txt}; ' + PYTHON3 + ' ' + COMPUTETREEDISTANCE + ' ${{file1}} ${{file2}} 1 >> {output.txt}; done; done; done'
+        'for loss in ' + ' '.join(LOSS) + '; do for num in {params.numCells}; do for ((i=0; i<{params.numRuns}; ++i)); do for ((j=i+1; j<{params.numRuns};++j)); do file1=\"' + OUTDIR + 'cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{loss}}/para_0.05/run_${{i}}/art_tree_mut2sample.tsv\"; file2=\"' + OUTDIR + 'cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{loss}}/para_0.05/run_${{j}}/art_tree_mut2sample.tsv\"; printf \"Random\\t${{i}}_${{j}}\\t${{num}}\\t${{loss}}\\t0.05\\t\" >> {output.txt}; ' + PYTHON3 + ' ' + COMPUTETREEDISTANCE + ' ${{file1}} ${{file2}} 1 >> {output.txt}; done; done; done; done; ' +
+        'for loss in ' + ' '.join(LOSS) + '; do for num in {params.numCells}; do for ((i=0; i<{params.numRuns}; ++i)); do for ((j=i+1; j<{params.numRuns};++j)); do file1=\"' + OUTDIR + 'cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{loss}}/para_0/run_${{i}}/art_tree_mut2sample.tsv\"; file2=\"' + OUTDIR + 'cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_${{loss}}/para_0/run_${{j}}/art_tree_mut2sample.tsv\"; printf \"Random\\t${{i}}_${{j}}\\t${{num}}\\t${{loss}}\\t0\\t\" >> {output.txt}; ' + PYTHON3 + ' ' + COMPUTETREEDISTANCE + ' ${{file1}} ${{file2}} 1 >> {output.txt}; done; done; done; done; ' +
+        'for para in ' + ' '.join(PARA) + '; do for num in {params.numCells}; do for ((i=0; i<{params.numRuns}; ++i)); do for ((j=i+1; j<{params.numRuns};++j)); do file1=\"' + OUTDIR + 'cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_${{para}}/run_${{i}}/art_tree_mut2sample.tsv\"; file2=\"' + OUTDIR + 'cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_${{para}}/run_${{j}}/art_tree_mut2sample.tsv\"; printf \"Random\\t${{i}}_${{j}}\\t${{num}}\\t0\\t${{para}}\\t\" >> {output.txt}; ' + PYTHON3 + ' ' + COMPUTETREEDISTANCE + ' ${{file1}} ${{file2}} 1 >> {output.txt}; done; done; done; done'
+        #'for num in {params.numCells}; do for ((i=0; i<{params.numRuns}; ++i)); do for ((j=i+1; j<{params.numRuns};++j)); do file1=\"' + OUTDIR + 'cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0.30/para_0.05/run_${{i}}/art_tree_mut2sample.tsv\"; file2=\"' + OUTDIR + 'cells_${{num}}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0.30/para_0.05/run_${{j}}/art_tree_mut2sample.tsv\"; printf \"Random\\t${{i}}_${{j}}\\t${{num}}\\t\" >> {output.txt}; ' + PYTHON3 + ' ' + COMPUTETREEDISTANCE + ' ${{file1}} ${{file2}} 1 >> {output.txt}; done; done; done'
 
 localrules: gatherBenchmarksTrees
 rule gatherBenchmarksTrees:
     input:
-        inf = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_0/run_{run}/prior_0.0001/sciphi/force_zyg_1/sciphi_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS)),
+        inf1 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/prior_0.0001/sciphi/force_zyg_1/sciphi_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), loss = LOSS),
+        inf2 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/prior_0.0001/sciphi/force_zyg_1/sciphi_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), loss = LOSS),
+        inf3 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/prior_0.0001/sciphi/force_zyg_1/sciphi_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), para = PARA),
+        inf4 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), loss = LOSS),
+        inf5 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), loss = LOSS),
+        inf6 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), para = PARA),
+        inf7 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0.05/run_{run}/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), loss = LOSS),
+        inf8 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_{loss}/para_0/run_{run}/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), loss = LOSS),
+        inf9 = expand(OUTDIR + 'cells_{numCells}/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_{para}/run_{run}/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_tree_{{distance}}.txt', numCells = NUMCELLS, run = range(0, NUMRUNS), para = PARA),
         txt = OUTDIR + 'distance_random_tree.txt'
     output:
         txt = OUTDIR + '{distance}_tree.txt',
-        pdf = OUTDIR + '{distance}_tree.pdf'
+        #pdf = OUTDIR + '{distance}_tree.pdf'
     shell:
-        ('printf "exp\trun\\tcells\\tdist\\n" >> {output.txt}; ' +
-        'for f in {input.inf}; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhI\\t${{run}}\\t${{num}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; cat {input.txt} >> {output.txt}; ' +
-        RSCRIPT  + PLOTTREEDIST + ' {output.txt}')
+        ('printf "exp\\trun\\tcells\\tloss\\tpara\\tdist\\n" >> {output.txt}; ' +
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_*/para_0.05/run_*/prior_0.0001/sciphi/force_zyg_1/sciphi_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhIN\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_*/para_0/run_*/prior_0.0001/sciphi/force_zyg_1/sciphi_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhIN\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_*/run_*/prior_0.0001/sciphi/force_zyg_1/sciphi_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhIN\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_*/para_0.05/run_*/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhI\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_*/para_0/run_*/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhI\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_*/run_*/prior_0.0001/sciphi_orig/force_zyg_1/sciphi_orig_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhI\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_*/para_0.05/run_*/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhIN_max\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_*/para_0/run_*/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhIN_max\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'for f in ' + OUTDIR + 'cells_25/muts_100/drop_0.2/zyg_0/cpn_0/loss_0/para_*/run_*/prior_0.0001/sciphi_max/force_zyg_1/sciphi_max_tree_{wildcards.distance}.txt; do run=$(echo $f | awk -F\'run_\' \'{{print $2}}\' | cut -d \'/\' -f 1); loss=$(echo $f | awk -F\'loss_\' \'{{print $2}}\' | cut -d \'/\' -f 1); para=$(echo $f | awk -F\'para_\' \'{{print $2}}\' | cut -d \'/\' -f 1); num=$(echo $f | awk -F\'cells_\' \'{{print $2}}\' | cut -d \'/\' -f 1); printf \"SCIPhIN_max\\t${{run}}\\t${{num}}\\t${{loss}}\\t${{para}}\\t\" >> {output.txt}; head -n 1 $f >> {output.txt}; done; ' + 
+        'cat {input.txt} >> {output.txt}; ') # +
+        #RSCRIPT  + PLOTTREEDIST + ' {output.txt}')

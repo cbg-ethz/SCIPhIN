@@ -81,6 +81,26 @@ printMutationProbability(Config<SampleTree> const &config,
 
 inline
 void
+printRootProbability(Config<SampleTree> const &config,
+                         std::string const &outfileName,
+                         std::vector<std::queue<double>> rootProbabilities) {
+
+    std::ofstream outFile;
+    outFile.open(outfileName);
+    for (unsigned int j = 0; j < config.getNumMutations(); ++j) {
+        outFile << std::get<0>(config.indexToPosition[j]) << "\t" << std::get<1>(config.indexToPosition[j]) <<"\t";
+        while (rootProbabilities[j].size() > 1)
+        {
+            outFile << rootProbabilities[j].front() <<",";
+            rootProbabilities[j].pop();
+        }
+        outFile << rootProbabilities[j].front() << std::endl;
+    }
+    outFile.close();
+}
+
+inline
+void
 writeVCFHeader(Config<SampleTree> const &config,
                std::ofstream &outFile) {
     outFile << "##fileformat=VCFv4.1\n";

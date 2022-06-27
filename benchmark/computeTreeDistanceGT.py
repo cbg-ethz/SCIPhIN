@@ -56,7 +56,7 @@ for line in inFileInf:
 
     else:
         lineSplit = line.strip().split("\t")[1:]
-        gts = list(map(lambda x: float(x.split("|")[2]), lineSplit[1:]))
+        gts = list(map(lambda x: float(x.split("|")[5]), lineSplit[1:]))
     
     infDict[lineSplit[0]] = gts
 

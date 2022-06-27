@@ -425,6 +425,11 @@ public:
     
     unsigned sampling;
 
+    // run in maximum likelihood mode
+    bool ml_mode;
+
+    bool learnChi;
+
 
     Config() :
             params{{TParamsTuple{100.0, 100.0},             //overdispersion background
@@ -476,7 +481,9 @@ public:
             meanFilter(0.25),
             minCovNormalCell(5),
             maxNumberNormalCellMutated(0),
-            useNormalCellsInTree(false) {};
+            useNormalCellsInTree(false),
+            ml_mode(false),
+            learnChi(false) {};
 };
 
 template<typename TTreeType>

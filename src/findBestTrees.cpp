@@ -165,7 +165,11 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
             ("lpp", boost::program_options::value<decltype(config.parallelScorePenalty)>(&config.parallelScorePenalty),
              "Penalty when computing the parallel score.")
             ("ese", boost::program_options::value<decltype(config.estimateSeqErrorRate)>(&config.estimateSeqErrorRate),
-             "Estimate the sequencing error rate. [1]");
+             "Estimate the sequencing error rate. [1]")
+            ("mlm", boost::program_options::value<decltype(config.ml_mode)>(&config.ml_mode),
+             "Use the maximum likelihood mode instead of the MCMC approach. [false]")
+            ("chi", boost::program_options::value<decltype(config.learnChi)>(&config.learnChi),
+             "Learn the loss and parallel priors. [false]");
 
     // hidden options, i.e., input files
     boost::program_options::options_description hidden("Hidden options");
@@ -229,6 +233,32 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
     std::get<1>(config.params[5]) = std::get<0>(config.params[5]);
 
     return 0;
+}
+
+template<typename TTreeType>
+void
+learnChi(typename Config<TTreeType>::TGraph &bestTree,
+        std::array<std::tuple<double, double>, 9> &bestParams,
+        Config<TTreeType> &config,
+        std::vector<std::vector<unsigned>> &sampleTrees) {
+    
+    bool ml_mode = config.ml_mode;
+    unsigned sampleLoops = config.sampleLoops;
+    config.lossScorePenalty = 100000;
+    config.parallelScorePenalty = 100000;
+    config.sampleLoops = 0;
+    //config.ml_mode = true;
+    
+    runMCMC(bestTree,bestParams, config, sampleTrees);
+
+    //config.ml_mode = true;
+    //runMCMC(bestTree,bestParams, config, sampleTrees);
+
+    //config.ml_mode = ml_mode;
+    config.sampleLoops = sampleLoops;
+
+    std::cout << "The loss penalty score is " << config.lossScorePenalty << " and the parallel penalty score is: " << config.parallelScorePenalty << std::endl;
+
 }
 
 int main(int argc, char *argv[]) {
@@ -302,12 +332,18 @@ int main(int argc, char *argv[]) {
     // list where tree samples are stored, if sampling based on posterior distribution is needed
     std::vector<std::vector<unsigned>> sampleTrees;
 
+    if (config.learnChi){
+        learnChi(optimalTree, optimalParams, config, sampleTrees);
+    }
+
     // Find best scoring trees by MCMC
-    runMCMC(optimalTree, optimalParams, config, sampleTrees);
+    std::vector<std::queue<double>> rootProbabilities(config.getNumMutations());
+    runMCMC(optimalTree, optimalParams, config, sampleTrees, rootProbabilities);
 
     // Write the results to disk
     normalizeMutationCounts(config);
     printMutationProbability(config, config.outFilePrefix + ".probs");
+    printRootProbability(config, config.outFilePrefix + ".rootProbs", rootProbabilities);
     writeParameters(config, config.outFilePrefix + ".params.txt");
     writeVCF(config, config.outFilePrefix + ".vcf");
 

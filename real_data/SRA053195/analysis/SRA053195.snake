@@ -26,6 +26,7 @@ SAMPLEMAPPING = 'sample_mapping.txt'
 FASTQDIR = '../data/sra/'
 OUTDIR   = 'out/'
 TMPDIR   = 'tmp/'
+SCIPHIOUT = OUTDIR + 'variants/sciphi/'
 
 ORGANISM = 'H_sapiens_hg19'
 
@@ -53,8 +54,8 @@ MPILEUPIN = REALIGNINDELSOUT
 MPILEUPOUT = OUTDIR + 'mpileup/'
 FINALBAMOUTDIR = REALIGNINDELSOUT
 MONOVAROUT = OUTDIR + 'variants/monovar/'
-SCIPHIOUT = OUTDIR + 'variants/sciphi/'
 
+include: "../../pipe/misc_snake.py"
 include: "../../pipe/align_snake.py"
 include: "../../pipe/qc_snake.py"
 include: "../../pipe/var_exome_snake.py"
@@ -62,16 +63,15 @@ include: "../../pipe/monovar_snake.py"
 
 print(getExperimentNames())
 
+CHI = ["-1", "0", "1", "10", "30", "100", "1000"]
+
 localrules: all
 rule all:
     input:
-        REALIGNINDELSOUT + 'multiqc_report.html',
-        expand(OUTDIR + 'variants/monovar/{experiment}.vcf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/sciphi/1/{experiment}.vcf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/sciphi/2/{experiment}.vcf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/sciphi/1/{experiment}_heatTree.pdf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/sciphi/1/{experiment}_overview.pdf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/sciphi/2/{experiment}_heatTree.pdf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/sciphi/2/{experiment}_overview.pdf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/monovar/{experiment}_heatTree.pdf', experiment = getExperimentNames()),
-        expand(OUTDIR + 'variants/monovar/{experiment}_cluster.pdf', experiment = getExperimentNames())
+        expand(OUTDIR + 'variants/sciphi/1/{experiment}_chi.vcf', experiment = getExperimentNames()),
+        expand(OUTDIR + 'variants/sciphi/{num}/{experiment}_llp-{pen}_lpp-{pen}_overview.pdf', experiment = getExperimentNames(), num = ['1', '2'], pen = CHI),
+        expand(OUTDIR + 'variants/sciphi/1/{experiment}_max_llp-{pen}_lpp-{pen}_heatTree.pdf', experiment = getExperimentNames(), pen = CHI),
+        expand(OUTDIR + 'variants/sciphi/1/{experiment}_chi_max_heatTree.pdf', experiment = getExperimentNames()),
+        expand(OUTDIR + 'variants/sciphi/1/{experiment}_chi_heatTree.pdf', experiment = getExperimentNames()),
+        expand(OUTDIR + 'variants/monovar/{experiment}_llp-{pen}_lpp-{pen}_heatTree.pdf', experiment = getExperimentNames(), pen = CHI),
+        expand(OUTDIR + 'variants/monovar/{experiment}_llp-{pen}_lpp-{pen}_cluster.pdf', experiment = getExperimentNames(), pen = CHI)

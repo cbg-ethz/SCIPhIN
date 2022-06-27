@@ -25,7 +25,7 @@ args <- commandArgs(TRUE)
 inputName <- args[1]
 df <- read.table(inputName, header = TRUE)
 df$loss <- as.factor(df$loss)
-df$tool <- factor(df$tool, levels = c("Monovar", "SCIPhI", "SCIPhIN"))
+df$tool <- factor(df$tool, levels = c("Monovar", "SCIPhI", "SCIPhIN", "sciphi_max"))
 
 
 ggplot(data = df, aes(x = loss, y = recall, fill = tool)) +
@@ -40,8 +40,8 @@ ggplot(data = df, aes(x = loss, y = recall, fill = tool)) +
         text = element_text(size=25),
         legend.text.align = 0,
         legend.key.size = unit(3., 'lines')) +
-  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
-  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue", "grey")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue", "grey"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N")),expression(paste("SCI", Phi, "N_max"))))
 ggsave(paste(gsub(".txt","",inputName), "_rec.pdf", sep=""))
   
 ggplot(data = df, aes(x = loss, y = precision, fill = tool)) +
@@ -55,8 +55,8 @@ ggplot(data = df, aes(x = loss, y = precision, fill = tool)) +
         text = element_text(size=25),
         legend.text.align = 0,
         legend.key.size = unit(3., 'lines')) +
-  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
-  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue", "grey")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue", "grey"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N")),expression(paste("SCI", Phi, "N_max"))))
 ggsave(paste(gsub(".txt","",inputName), "_pre.pdf", sep=""))
 
 ggplot(data = df, aes(x = loss, y = f1, fill = tool)) +
@@ -70,6 +70,6 @@ ggplot(data = df, aes(x = loss, y = f1, fill = tool)) +
         text = element_text(size=25),
         legend.text.align = 0,
         legend.key.size = unit(3., 'lines')) +
-  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue")) +
-  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N"))))
+  scale_color_manual(values = c("firebrick3", "lightsteelblue", "steelblue", "grey")) +
+  scale_fill_manual(values = c("firebrick3", "lightsteelblue", "steelblue", "grey"), labels=c("Monovar", expression(paste("SCI", Phi)), expression(paste("SCI", Phi, "N")),expression(paste("SCI", Phi, "N_max"))))
 ggsave(paste(gsub(".txt","",inputName), "_f1.pdf", sep=""))

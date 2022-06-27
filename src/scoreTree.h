@@ -117,20 +117,30 @@ public:
         }
         
         AttachmentScore tmp = attachmentScores[v];
+
         if (config.computeLossScore)
         {
             if (tmp.numAltRPoss() > 0){
                 tmp.lossAltRScore() -= std::log(tmp.numAltRPoss());
             }
+            //if (tmp.numFirstMutAltLoss() > 0){
+            //    tmp.lossAltRScore() -= std::log(tmp.numFirstMutAltLoss());
+            //}
             if (tmp.numInnerNodes() > 0){
                 tmp.lossWildScore() -= std::log(tmp.numInnerNodes());
             }
+            //if (tmp.numFirstMutWildLoss() > 0){
+            //    tmp.lossWildScore() -= std::log(tmp.numFirstMutWildLoss());
+            //}
         }
         if (config.computeParallelScore)
         {
             if (tmp.numLcaRPoss() > 0){
                 tmp.lcaRScore() -= std::log(tmp.numLcaRPoss());
             }
+            //if (tmp.numFirstLca() > 0){
+            //    tmp.lcaRScore() -= std::log(tmp.numFirstLca());
+            //}
         }
         
         scoreSum.addInRealSpace(tmp);
@@ -150,6 +160,28 @@ void getAllAttachmentScores(typename Config<SampleTree>::TAttachmentScores & att
     unsigned rootVertex = target(*out_edges(num_vertices(config.getTree()) - 1, config.getTree()).first, config.getTree());
 
     depth_first_search(config.getTree(), visitor(vis).root_vertex(rootVertex));
+
+}
+
+// This function invokes the computation of the tree score
+double  getRootProbability(typename Config<SampleTree>::TAttachmentScores & attachmentScores,
+                            Config<SampleTree>::TAttachmentScores::TAttachmentScore const & finalSumScore,
+                            Config<SampleTree> & config)
+{
+   unsigned rootVertex = target(*out_edges(num_vertices(config.getTree()) - 1, config.getTree()).first, config.getTree());
+
+
+   for (unsigned i = 0; i < num_vertices(config.getTree()) - 1; ++i)
+   {
+
+       attachmentScores[i].computeFinalScore(config, finalSumScore, false, false);
+   }
+
+   //     auto it = out_edges(rootVertex, config.getTree()).first;
+   //     unsigned lN = target(*it, config.getTree());                // left node id
+   //     unsigned rN = target(*(it + 1), config.getTree());          // right node id
+   attachmentScores[rootVertex].computeFinalScore(config, finalSumScore, false, false);
+   return std::exp(attachmentScores[rootVertex].finalScore() - finalSumScore.finalScore());
 
 }
 
@@ -241,6 +273,41 @@ double maxScoreTree(Config<SampleTree> & config)
 
 // This function computes the final score of the tree
 template <typename TTreeType>
+void getRootProbability(Config<TTreeType> & config,
+                             std::vector<std::queue<double>> &rootProbabilities,
+                             std::vector<double> &sumRootProb,
+							 unsigned int attachment)
+{
+    typename Config<TTreeType>::TAttachmentScores & attachmentScores = config.getTmpAttachmentScore();
+    Config<SampleTree>::TAttachmentScores::TAttachmentScore scoreSum;
+    getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
+
+    scoreSum.computeFinalScore(config, scoreSum, false, true);
+    
+    double rootProbability = getRootProbability(attachmentScores, scoreSum, config);
+
+
+    sumRootProb[attachment] += rootProbability;
+    rootProbabilities[attachment].push(rootProbability);
+
+    if (rootProbabilities[attachment].size() > 1000){
+        sumRootProb[attachment] -= rootProbabilities[attachment].front();
+        rootProbabilities[attachment].pop();
+    }
+}
+
+template <typename TTreeType>
+void getRootProbabilities(Config<TTreeType> & config,
+                             std::vector<std::queue<double>> &rootProbabilities,
+                             std::vector<double> &sumRootProb)
+{
+    for (unsigned attachment = 0; attachment < config.getNumMutations(); ++ attachment)
+    {
+        getRootProbability(config, rootProbabilities, sumRootProb, attachment);
+    }
+}
+
+template <typename TTreeType>
 double getSumAttachmentScore(Config<TTreeType> & config,
                              typename Config<TTreeType>::TAttachmentScores & attachmentScores,
 							 unsigned int attachment)
@@ -249,7 +316,7 @@ double getSumAttachmentScore(Config<TTreeType> & config,
     getAllAttachmentScores(attachmentScores, scoreSum, config, attachment);
 
     scoreSum.computeFinalScore(config, scoreSum, false, true);
-
+    
     return scoreSum.finalScore();
 }
 

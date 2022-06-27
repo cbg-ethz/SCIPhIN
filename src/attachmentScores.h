@@ -297,7 +297,6 @@ struct AttachmentScore {
             bool isSumScore = false)
     {
 
-
         double logPHet = -INFINITY;
         double logPHom = -INFINITY;
         double logPLossWild = -INFINITY;
@@ -324,20 +323,18 @@ struct AttachmentScore {
         if (config.computeLossScore)
         {
             logPLossWild= this->lossWildScore() 
-                       - std::log(this->numFirstMutWildLoss())
+                       - std::log(sumScore.numFirstMutWildLoss())
                        + std::log(config.getParam(Config<TTreeType>::E_lambdaWildLoss));
             if (!isSumScore){    
-                    //logPLossWild -= std::log(sumScore.numInnerNodes());
-                    logPLossWild-= std::log(numInnerNodes);
+                    logPLossWild-= std::log(this->numInnerNodes());
             }
             hetWeight -= config.getParam(Config<TTreeType>::E_lambdaWildLoss);
             
             logPLossMut = this->lossAltRScore() 
-                       - std::log(this->numFirstMutAltLoss())
+                       - std::log(sumScore.numFirstMutAltLoss())
                        + std::log(config.getParam(Config<TTreeType>::E_lambdaMutLoss));
             if (!isSumScore){    
-                      //logPLossMut -= std::log(sumScore.numAltRPoss());
-                      logPLossMut -= std::log(numInnerNodes);
+                      logPLossMut -= std::log(this->numAltRPoss());
             }
             hetWeight -= config.getParam(Config<TTreeType>::E_lambdaMutLoss);
         }
@@ -346,11 +343,13 @@ struct AttachmentScore {
         if (config.computeParallelScore)
         {
             logPPara = this->lcaRScore()
-                       - std::log(this->numFirstLca())
+                       - std::log(sumScore.numFirstLca())
                        + std::log(config.getParam(Config<TTreeType>::E_parallel));
-            if (!isSumScore){    
-                 //logPPara -= std::log(sumScore.numLcaRPoss());
-                 logPPara -= std::log(numInnerNodes);
+            if (!isSumScore){
+                 if (this->numLcaRPoss() > 0)
+                 {
+                    logPPara -= std::log(this->numLcaRPoss());
+                 }
             }
             hetWeight -= config.getParam(Config<TTreeType>::E_parallel);
         }
@@ -362,7 +361,7 @@ struct AttachmentScore {
                   + std::log(hetWeight);
 
         logPD = addLogProb(addLogProb(addLogProb(addLogProb(logPHet,logPHom),logPLossWild),logPLossMut),logPPara);
-
+        
         return {{logPHet, logPHom, logPLossWild, logPLossMut, logPPara, logPD}};
     }
 
