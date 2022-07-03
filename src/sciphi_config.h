@@ -253,7 +253,7 @@ public:
     std::default_random_engine generator;
 
     // Number of mcmc iteration
-    unsigned loops;
+    int loops;
 
     // Fixed, user specified seed
     unsigned fixedSeed;
@@ -277,7 +277,7 @@ public:
     std::tuple<double, double> dataUsageRate;
 
     // Number of posterior sampling moves
-    unsigned sampleLoops;
+    int sampleLoops;
     // Positions used to estimate the sequencing error rate
     unsigned errorRateEstLoops;
 

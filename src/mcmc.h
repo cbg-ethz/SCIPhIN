@@ -364,9 +364,15 @@ runMCMC(typename Config<TTreeType>::TGraph &bestTree,
 
     unsigned numMutInRoot = 0;
 
-    for (unsigned it = 0; it < config.loops + config.sampleLoops; it++) {        // run the iterations of the MCMC
+    // set the number of loops to something very high for the hill climbing mode
+    if (config.ml_mode)
+    {
+        config.loops = 100000000;
+    }
 
-        // Mutations are added in batches of 10% of all mutations 10 times
+    for (int it = 0; it < config.loops + config.sampleLoops; it++) {        // run the iterations of the MCMC
+
+
         // This function handles the resizing of the corresponding containers
         if (config.updateContainers(it)) {
             bestTreeLogScore = -DBL_MAX;
@@ -377,6 +383,7 @@ runMCMC(typename Config<TTreeType>::TGraph &bestTree,
                             currTreeLogScore,
                             bestTree,
                             bestParams);
+
         }
 
         // Print some output every 10000 iteration
@@ -415,7 +422,8 @@ runMCMC(typename Config<TTreeType>::TGraph &bestTree,
                 else if (numAcceptAllTreeMoves == maxNumAcceptAllTreeMoves)
                 {
                     restarts += 1;
-                    it = 0; 
+                    std::cout << "Restart number : " << restarts << std::endl;
+                    it = -1; 
                     numAcceptAllTreeMoves = 0;
                     numRejectedTreeMoves = 0;
                     acceptAllTreeMoves = false;
@@ -441,7 +449,8 @@ runMCMC(typename Config<TTreeType>::TGraph &bestTree,
                             currTreeLogScore,
                             bestTree,
                             bestParams);
-        } else // the proposed tree is rejected
+        } 
+        else // the proposed tree is rejected
         {
             if (config.getMoveTyp() == 4) {
                 config.resetParameters();
@@ -499,8 +508,14 @@ runMCMC(typename Config<TTreeType>::TGraph &bestTree,
         if (it >= config.loops) {
             if (config.ml_mode)
             {
+                // Because we increased loops to a very large number
+                // we will only get here (in the hill climbing mode) if
+                // we complete all restarts
+                // we therefore now take the global optimum
                 config.getTree() = bestTree;
                 config.params = bestParams;
+                computeLogScoresOP(config);
+                scoreTree(config);
             }
             getRootProbabilities(config, rootProbabilities, sumRootProb);
             updateMutInSampleCounts(config);
