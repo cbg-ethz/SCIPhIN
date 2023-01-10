@@ -140,9 +140,9 @@ int readParameters(Config<TTreeType> &config, int argc, char *argv[]) {
              "Minimum coverage required per cell. [1]")
             ("mnp",
              boost::program_options::value<decltype(config.minNumCellsPassFilter)>(&config.minNumCellsPassFilter),
-             "Number of cells which need to pass the filters.")
+             "Number of cells which need to pass the filters. [2]")
             ("ms", boost::program_options::value<decltype(config.minSupport)>(&config.minSupport),
-             "Minimum number of reads required to support the alternative. [0]")
+             "Minimum number of reads required to support the alternative. [3]")
             ("mf", boost::program_options::value<decltype(config.minFreq)>(&config.minFreq),
              "Minimum required frequency of reads supporting the alternative per cell. [0]")
             ("mff", boost::program_options::value<decltype(config.meanFilter)>(&config.meanFilter),
