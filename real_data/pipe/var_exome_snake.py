@@ -40,13 +40,13 @@ rule samtoolsCombineMpileup:
     shell:
         'cat {input.mpileup} > {output.mpileup}; gzip < {output.mpileup} > {output.gz}'
 
-ruleorder: createBamFileSummaryScate > createBamFileSummary
-localrules: createBamFileSummaryScate
-rule createBamFileSummaryScate:
+ruleorder: createBamFileSummaryScite > createBamFileSummary
+localrules: createBamFileSummaryScite
+rule createBamFileSummaryScite:
     input:
         bams = getFinalMpileupBams,
     output:
-        SCIPHIOUT + '{experiment}_all_bamFileNames.txt'
+        OUTDIR + '{location}/{experiment}_all_bamFileNames.txt'
     run:
         sampleMappingFile = open(SAMPLEMAPPING, 'r')
         sampleMapping = {}
@@ -59,47 +59,172 @@ rule createBamFileSummaryScate:
             outfile.write(entry + '\t' + sampleMapping[sample] + '\n')
         outfile.close()
 
-rule sciphi:
+rule sciphin:
     input:
         ref = config['resources'][ORGANISM]['reference'],
         mpileup = MPILEUPOUT + '{experiment}_all_complete.mpileup',
         fileNames = SCIPHIOUT + '{experiment}_all_bamFileNames.txt'
     output:
-        tsv = SCIPHIOUT + '{run}/{experiment}_mut2Sample.tsv',
-        probs = SCIPHIOUT + '{run}/{experiment}.probs',
-        gv = SCIPHIOUT + '{run}/{experiment}.gv',
-        params = SCIPHIOUT + '{run}/{experiment}.params.txt',
-        vcf = SCIPHIOUT + '{run}/{experiment}.vcf',
-        bParams = SCIPHIOUT + '{run}/{experiment}/best_index/nuc.tsv',
-        bTree = SCIPHIOUT + '{run}/{experiment}/best_index/tree.gv' 
+        tsv = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}_mut2Sample.tsv',
+        probs = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.probs',
+        gv = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.gv',
+        params = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.params.txt',
+        vcf = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.vcf',
+        bParams = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}/best_index/nuc.tsv',
+        bTree = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}/best_index/tree.gv' 
     params:
-        lsfoutfile = SCIPHIOUT + '{run}/{experiment}.lsfout.log',
-        lsferrfile = SCIPHIOUT + '{run}/{experiment}.lsferr.log',
+        lsfoutfile = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.lsfout.log',
+        lsferrfile = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.lsferr.log',
         scratch = config['tools']['sciphi']['scratch'],
         mem = config['tools']['sciphi']['mem'],
         time = config['tools']['sciphi']['time'],
-        out = SCIPHIOUT + '{run}/{experiment}',
+        out = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}',
         params = config['tools']['sciphi']['params'],
-        outIndex = SCIPHIOUT + '{run}/{experiment}/index'
+        outIndex = SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}/index'
     benchmark:
-        SCIPHIOUT + '{run}/{experiment}.benchmark'
+        SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.benchmark'
     threads:
         1
     log:
-        SCIPHIOUT + '{run}/{experiment}.log'
+        SCIPHIOUT + '{run}/{experiment}_llp-{llp}_lpp-{lpp}.log'
     shell:
         ('{config[tools][sciphi][call]} ' +
         '-o {params.out} ' +
         '--ol {params.outIndex} ' + 
-        '-i {input.ref} ' +
         '--in {input.fileNames} ' +
-        #'--cwm 2 ' +
-        #'--ms 3 ' +
-        #'--nmc 2 ' +
+        '--ll 1 ' +
+        '--lp 1 ' +
+        '--llp {wildcards.llp} ' +
+        '--lpp {wildcards.lpp} ' +
         '--lz 1 ' +
         '--seed {wildcards.run} ' +
         '{params.params} ' +
-        '{input.mpileup}')
+        '--im {input.mpileup}')
+
+ruleorder: sciphin_max > sciphin
+rule sciphin_max:
+    input:
+        ref = config['resources'][ORGANISM]['reference'],
+        mpileup = MPILEUPOUT + '{experiment}_all_complete.mpileup',
+        fileNames = SCIPHIOUT + '{experiment}_all_bamFileNames.txt'
+    output:
+        tsv = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}_mut2Sample.tsv',
+        probs = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.probs',
+        gv = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.gv',
+        params = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.params.txt',
+        vcf = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.vcf',
+        bParams = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}/best_index/nuc.tsv',
+        bTree = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}/best_index/tree.gv' 
+    params:
+        lsfoutfile = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.lsfout.log',
+        lsferrfile = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.lsferr.log',
+        scratch = config['tools']['sciphi']['scratch'],
+        mem = config['tools']['sciphi']['mem'],
+        time = config['tools']['sciphi']['time'],
+        out = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}',
+        params = config['tools']['sciphi']['params'],
+        outIndex = SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}/index'
+    benchmark:
+        SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.benchmark'
+    threads:
+        1
+    log:
+        SCIPHIOUT + '{run}/{experiment}_max_llp-{llp}_lpp-{lpp}.log'
+    shell:
+        ('{config[tools][sciphi][call]} ' +
+        '-o {params.out} ' +
+        '--ol {params.outIndex} ' + 
+        '--in {input.fileNames} ' +
+        '--ll 1 ' +
+        '--lp 1 ' +
+        '--llp {wildcards.llp} ' +
+        '--lpp {wildcards.lpp} ' +
+        '--lz 1 ' +
+        '--mlm 1 ' +
+        '--seed {wildcards.run} ' +
+        '{params.params} ' +
+        '--im {input.mpileup}')
+rule sciphin_chi:
+    input:
+        ref = config['resources'][ORGANISM]['reference'],
+        mpileup = MPILEUPOUT + '{experiment}_all_complete.mpileup',
+        fileNames = SCIPHIOUT + '{experiment}_all_bamFileNames.txt'
+    output:
+        tsv = SCIPHIOUT + '{run}/{experiment}_chi_mut2Sample.tsv',
+        probs = SCIPHIOUT + '{run}/{experiment}_chi.probs',
+        gv = SCIPHIOUT + '{run}/{experiment}_chi.gv',
+        params = SCIPHIOUT + '{run}/{experiment}_chi.params.txt',
+        vcf = SCIPHIOUT + '{run}/{experiment}_chi.vcf',
+        bParams = SCIPHIOUT + '{run}/{experiment}_chi/best_index/nuc.tsv',
+        bTree = SCIPHIOUT + '{run}/{experiment}_chi/best_index/tree.gv' 
+    params:
+        lsfoutfile = SCIPHIOUT + '{run}/{experiment}_chi.lsfout.log',
+        lsferrfile = SCIPHIOUT + '{run}/{experiment}_chi.lsferr.log',
+        scratch = config['tools']['sciphi']['scratch'],
+        mem = config['tools']['sciphi']['mem'],
+        time = config['tools']['sciphi']['time'],
+        out = SCIPHIOUT + '{run}/{experiment}_chi',
+        params = config['tools']['sciphi']['params'],
+        outIndex = SCIPHIOUT + '{run}/{experiment}_chi/index'
+    benchmark:
+        SCIPHIOUT + '{run}/{experiment}_chi.benchmark'
+    threads:
+        1
+    log:
+        SCIPHIOUT + '{run}/{experiment}_chi.log'
+    shell:
+        ('{config[tools][sciphi][call]} ' +
+        '-o {params.out} ' +
+        '--ol {params.outIndex} ' + 
+        '--in {input.fileNames} ' +
+        '--ll 1 ' +
+        '--lp 1 ' +
+        '--chi 1 ' + 
+        '--lz 1 ' +
+        '--seed {wildcards.run} ' +
+        '{params.params} ' +
+        '--im {input.mpileup}')
+rule sciphin_chi_max:
+    input:
+        ref = config['resources'][ORGANISM]['reference'],
+        mpileup = MPILEUPOUT + '{experiment}_all_complete.mpileup',
+        fileNames = SCIPHIOUT + '{experiment}_all_bamFileNames.txt'
+    output:
+        tsv = SCIPHIOUT + '{run}/{experiment}_chi_max_mut2Sample.tsv',
+        probs = SCIPHIOUT + '{run}/{experiment}_chi_max.probs',
+        gv = SCIPHIOUT + '{run}/{experiment}_chi_max.gv',
+        params = SCIPHIOUT + '{run}/{experiment}_chi_max.params.txt',
+        vcf = SCIPHIOUT + '{run}/{experiment}_chi_max.vcf',
+        bParams = SCIPHIOUT + '{run}/{experiment}_chi_max/best_index/nuc.tsv',
+        bTree = SCIPHIOUT + '{run}/{experiment}_chi_max/best_index/tree.gv' 
+    params:
+        lsfoutfile = SCIPHIOUT + '{run}/{experiment}_chi_max.lsfout.log',
+        lsferrfile = SCIPHIOUT + '{run}/{experiment}_chi_max.lsferr.log',
+        scratch = config['tools']['sciphi']['scratch'],
+        mem = config['tools']['sciphi']['mem'],
+        time = config['tools']['sciphi']['time'],
+        out = SCIPHIOUT + '{run}/{experiment}_chi_max',
+        params = config['tools']['sciphi']['params'],
+        outIndex = SCIPHIOUT + '{run}/{experiment}_chi_max/index'
+    benchmark:
+        SCIPHIOUT + '{run}/{experiment}_chi_max.benchmark'
+    threads:
+        1
+    log:
+        SCIPHIOUT + '{run}/{experiment}_chi_max.log'
+    shell:
+        ('{config[tools][sciphi][call]} ' +
+        '-o {params.out} ' +
+        '--ol {params.outIndex} ' + 
+        '--in {input.fileNames} ' +
+        '--ll 1 ' +
+        '--lp 1 ' +
+        '--chi 1 ' + 
+        '--lz 1 ' +
+        '--mlm 1 ' + 
+        '--seed {wildcards.run} ' +
+        '{params.params} ' +
+        '--im {input.mpileup}')
 
 if not 'HAPLOTYPECALLERIN' in globals():
     HAPLOTYPECALLERIN = 'placeholder'
